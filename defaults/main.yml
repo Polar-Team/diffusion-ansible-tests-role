@@ -1,2 +1,1 @@
----
-# defaults file for diffusion_tests
+docker_rootless: true

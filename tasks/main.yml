@@ -1,2 +1,39 @@
 ---
-# tasks file for diffusion_tests
+- name: test port {{ port }}
+  ansible.builtin.wait_for:
+    host: "localhost"
+    port: "{{ port }}"
+    state: started
+    delay: 0
+    timeout: 3
+  register: "output_port"
+  when: >
+    port_test and not docker_health_test and
+    not shell_test
+
+- name: Check container health {{ container_name }}
+  environment:
+    DOCKER_HOST: "unix:///run/user/{{ docker_user_uid }}/docker.sock"
+  community.docker.docker_container:
+    state: healthy
+  register: output_container_result
+  when: >
+    docker_health_test and not port_test and
+    not shell_test and docker_rootless
+
+- name: Check container health {{ container_name }}
+  become: true
+  community.docker.docker_container:
+    state: healthy
+  register: output_container_result
+  when: >
+    docker_health_test and not port_test and
+    not shell_test and not docker_rootless
+
+- name: Check shell return value
+  ansible.builtin.shell: |
+    {{ shell_command | trim }}
+  register: output_shell_result.stdout
+  when: >
+    shell_test and not port_test and
+    not docker_health_test
