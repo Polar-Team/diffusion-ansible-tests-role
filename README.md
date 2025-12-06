@@ -6,10 +6,10 @@ This role created for testing molecule base cases in diffusion framework. Use ve
 Requirements
 ------------
 
-
+```
 **ansible-core** >= 2.15
 **docker api** >= 1.25
-
+```
 Role Variables
 --------------
 
@@ -23,11 +23,10 @@ You can only use one true per role initializing.
 ```
 Dependencies
 ------------
-
+```
 **community.general** collection >= 6.4.0
 **community.docker** collection >= 5.0.1
-
-
+```
 Example Verify
 ----------------
 
