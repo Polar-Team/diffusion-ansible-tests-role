@@ -1,0 +1,22 @@
+galaxy_info:
+    role_name: diffusion_tests
+    company: Polar Team
+    namespace: polar
+    author: Daniel Dalavurak
+    description: Role for testing molecule for diffusion framework
+    license: MIT
+    min_ansible_version: "2.10"
+    platforms:
+        - name: Ubuntu
+          versions:
+            - "20.04"
+            - "22.04"
+            - "23.04"
+            - "24.04"
+    galaxy_tags:
+        - diffusion
+        - tests
+collections:
+    - community.docker
+    - community.general
+    - community.crypto

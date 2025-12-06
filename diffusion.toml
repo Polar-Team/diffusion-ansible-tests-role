@@ -1,0 +1,37 @@
+url = "https://example.com/repo"
+
+[container_registry]
+  registry_server = "cr.yandex"
+  registry_provider = "YC"
+  molecule_container_name = "crp8cgfah9nqgde7q9rm/molecule_dind"
+  molecule_container_tag = "latest"
+
+[vault]
+  enabled = false
+  secret_kv2_path = ""
+  secret_kv2_name = ""
+  username_field = ""
+  token_field = ""
+
+[yaml_lint]
+  extends = "default"
+  ignore = [".git/*", "molecule/**", "vars/*", "files/*", ".yamllint", ".ansible-lint"]
+  [yaml_lint.rules]
+    comments-indentation = false
+    [yaml_lint.rules.braces]
+      level = "warning"
+      max-spaces-inside = 1
+    [yaml_lint.rules.brackets]
+      level = "warning"
+      max-spaces-inside = 1
+    [yaml_lint.rules.new-lines]
+      type = "platform"
+    [yaml_lint.rules.comments]
+      min-spaces-from-content = 1
+    [yaml_lint.rules.octal-values]
+      forbid-implicit-octal = true
+
+[ansible_lint]
+  exclude_paths = ["molecule/default/tests/*.yml", "molecule/default/tests/*/*/*.yml", "tests/test.yml"]
+  warn_list = ["meta-no-info", "yaml[line-length]"]
+  skip_list = ["meta-incorrect", "role-name[path]"]

@@ -1,0 +1,31 @@
+# Molecule default scenario configuration
+---
+dependency:
+  name: galaxy
+  options:
+    requirements-file: requirements.yml
+driver:
+  name: docker
+# platforms:
+#  - name: YOUR_PLATFORM_NAME
+#    image: YOUR_TESTING_IMAGE_URL
+#    privileged: true
+#    pre_build_image: true
+#    env:
+#      YC_TOKEN: ${TOKEN}
+#      VAULT_ADDR: ${VAULT_ADDR}
+#      VAULT_TOKEN: ${VAULT_TOKEN}
+#    command: /lib/systemd/systemd
+#    cgroupns_mode: host
+#    tmpfs:
+#      - /tmp
+#      - /run
+#      - /run/lock
+#    volumes:
+#      - /etc/ssl/certs:/etc/ssl/certs
+#      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+#      - dockerroot:/var/lib/docker:rw
+provisioner:
+   name: ansible
+verifier:
+   name: ansible
