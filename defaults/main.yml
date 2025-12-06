@@ -1,1 +1,4 @@
 docker_rootless: true
+port_test: false
+docker_health_test: false
+shell_test: false

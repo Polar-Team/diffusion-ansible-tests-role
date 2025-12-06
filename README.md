@@ -1,24 +1,34 @@
 Role Name
 =========
 
-A brief description of the role goes here.
+This role created for testing molecule base cases in diffusion framework. Use verify molecule to use that DRY.
 
 Requirements
 ------------
 
-Any pre-requisites that may not be covered by Ansible itself or the role should be mentioned here. For instance, if the role uses the EC2 module, it may be a good idea to mention in this section that the boto package is required.
+
+**ansible-core** >= 2.15
+**docker api** >= 1.25
 
 Role Variables
 --------------
 
-A description of the settable variables for this role should go here, including any variables that are in defaults/main.yml, vars/main.yml, and any variables that can/should be set via parameters to the role. Any variables that are read from other roles and/or the global scope (ie. hostvars, group vars, etc.) should be mentioned here as well.
+```
+port_test          bool - Whether to test port mapping (default=false)
+docker_health_test bool - Whether to test docker healthcheck (default=false)
+docker_rootless    bool - Whether to test docker in rootless mode (default=true)
+shell_test         bool - Whether to test shell command execution (default=false)
+You can only use one true per role initializing.
 
+```
 Dependencies
 ------------
 
-A list of other roles hosted on Galaxy should go here, plus any details in regards to parameters that may need to be set for other roles, or variables that are used from other roles.
+**community.general** collection >= 6.4.0
+**community.docker** collection >= 5.0.1
 
-Example Playbook
+
+Example Verify
 ----------------
 
 Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
@@ -30,7 +40,7 @@ Including an example of how to use your role (for instance, with variables passe
 License
 -------
 
-BSD
+MIT
 
 Author Information
 ------------------
