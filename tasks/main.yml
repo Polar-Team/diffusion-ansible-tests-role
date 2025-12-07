@@ -33,7 +33,7 @@
 - name: Check shell return value
   ansible.builtin.shell: |
     {{ shell_command | trim }}
-  register: output_shell_result.stdout
+  register: output_shell_result
   when: >
     shell_test and not port_test and
     not docker_health_test
