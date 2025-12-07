@@ -7,8 +7,8 @@ Requirements
 ------------
 
 ```
-**ansible-core** >= 2.15
-**docker api** >= 1.25
+ansible-core >= 2.15
+docker api >= 1.25
 ```
 Role Variables
 --------------
@@ -30,11 +30,26 @@ Dependencies
 Example Verify
 ----------------
 
-Including an example of how to use your role (for instance, with variables passed in as parameters) is always nice for users too:
+Including an example of how to use your role in molecule verify (for instance, with variables passed in as parameters) is always nice for users too:
+```yaml
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  vars:
+   system_name: "Debian-12-12"
+   docker_user_uid: 1000
+  roles:
+   - role: tests/diffusion_tests
+     vars:
+       port_test: true
+       port: "9092"
+   - role: tests/diffusion_tests
+     vars:
+       container_name: "{{ system_name }}-kafka"
+       docker_health_test: true
+```
 
-    - hosts: servers
-      roles:
-         - { role: username.rolename, x: 42 }
 
 License
 -------
@@ -44,4 +59,4 @@ MIT
 Author Information
 ------------------
 
-An optional section for the role authors to include contact information, or a website (HTML is not allowed).
+Polar Team - Daniel Dalavurak
