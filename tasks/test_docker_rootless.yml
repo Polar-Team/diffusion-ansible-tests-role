@@ -1,0 +1,33 @@
+---
+- name: "Auto-detect Docker host for rootless mode"
+  when: verify_docker_rootless_autodetect
+  block:
+    - name: "Get UID of verify_docker_user"
+      ansible.builtin.command: "id -u {{ verify_docker_user }}"
+      register: docker_user_uid_cmd
+      changed_when: false
+
+    - set_fact:
+        docker_user_uid: "{{ docker_user_uid_cmd.stdout }}"
+
+    - name: "Check rootless Docker socket"
+      stat:
+        path: "/run/user/{{ docker_user_uid }}/docker.sock"
+      register: docker_rootless_socket
+
+    - name: "Set rootless env"
+      when: docker_rootless_socket.stat.exists
+      set_fact:
+        verify_docker_env:
+          DOCKER_HOST: "unix:///run/user/{{ docker_user_uid }}/docker.sock"
+          XDG_RUNTIME_DIR: "/run/user/{{ docker_user_uid }}"
+          PATH: "/home/{{ verify_docker_user }}/.local/bin:$PATH"
+
+    - name: "Fallback to classic Docker"
+      when: not docker_rootless_socket.stat.exists
+      set_fact:
+        verify_docker_env:
+          PATH: "{{ ansible_env.PATH }}"
+
+- set_fact:
+    verify_docker_env: "{{ verify_docker_env | combine(verify_docker_env_override, recursive=True) }}"

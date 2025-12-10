@@ -1,0 +1,33 @@
+- name: Run URI tests with temporary SNI hosts
+  block:
+    - name: Extract hostname
+      ansible.builtin.set_fact:
+        fqdn_name: "{{ item | regex_replace('^https?://([^/:]+).*', '\\1') }}"
+
+    - name: Add temporary host entry for SNI
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        line: "127.0.0.1 {{ fqdn_name }}"
+        state: present
+      become: yes
+
+    - name: Test URI
+      ansible.builtin.uri:
+        url: "{{ item }}"
+        return_content: yes
+        validate_certs: false
+        timeout: 5
+      register: uri_results
+      failed_when: uri_results.status not in [200, 302]
+
+  always:
+    - name: Remove temporary host entry
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: "^127\\.0\\.0\\.1\\s+{{ fqdn_name }}$"
+        state: absent
+      become: yes
+
+  loop: "{{ verify_uris }}"
+  loop_control:
+    label: "{{ item }}"

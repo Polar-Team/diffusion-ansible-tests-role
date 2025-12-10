@@ -1,0 +1,38 @@
+---
+- name: "Verify docker containers"
+  when: verify_docker_containers | length > 0
+  block:
+    - name: "Inspect container {{ item.name }}"
+      community.docker.docker_container_info:
+        name: "{{ item.name }}"
+      environment: "{{ verify_docker_env }}"
+      register: container_info
+      loop: "{{ verify_docker_containers }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: "Assert container running"
+      assert:
+        that:
+          - container_info.results[idx].container.State.Status == item.state
+      loop: "{{ verify_docker_containers }}"
+      loop_control:
+        index_var: idx
+
+    - name: "Assert container image"
+      when: item.image is defined
+      assert:
+        that:
+          - container_info.results[idx].container.Config.Image == item.image
+      loop: "{{ verify_docker_containers }}"
+      loop_control:
+        index_var: idx
+
+    - name: "Assert container health"
+      when: item.health is defined
+      assert:
+        that:
+          - container_info.results[idx].container.State.Health.Status == item.health
+      loop: "{{ verify_docker_containers }}"
+      loop_control:
+        index_var: idx

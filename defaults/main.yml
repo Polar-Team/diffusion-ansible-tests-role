@@ -1,4 +1,16 @@
-docker_rootless: true
-port_test: false
-docker_health_test: false
-shell_test: false
+---
+verify_ports: []
+verify_docker_containers: []
+verify_docker_user: "{{ docker_user | default('root') }}"
+verify_docker_rootless_autodetect: true
+verify_shell_outputs: []
+verify_uris: []
+
+postgres_host: "127.0.0.1"
+postgres_port: 5432
+postgres_db: ""
+postgres_user: ""
+postgres_password: ""
+postgres_expected_tables: []
+postgres_expected_records: []
+postgres_expected_roles: []

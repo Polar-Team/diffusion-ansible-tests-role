@@ -1,0 +1,60 @@
+---
+- name: Check Postgres DB exists
+  community.postgresql.postgresql_db:
+    name: "{{ postgres_db }}"
+    state: present
+    login_host: "{{ postgres_host }}"
+    login_user: "{{ postgres_user }}"
+    login_password: "{{ postgres_password }}"
+    port: "{{ postgres_port }}"
+  check_mode: true
+
+- name: Check Postgres roles exist
+  community.postgresql.postgresql_info:
+    filter: roles
+    login_host: "{{ postgres_host }}"
+    login_user: "{{ postgres_user }}"
+    login_password: "{{ postgres_password }}"
+    port: "{{ postgres_port }}"
+  register: pg_roles
+
+- name: Assert required roles exist
+  ansible.builtin.assert:
+    that: "'{{ item }}' in pg_roles.roles"
+    fail_msg: "Postgres role '{{ item }}' missing!"
+  loop: "{{ postgres_expected_roles }}"
+
+- name: Check required tables exist
+  community.postgresql.postgresql_info:
+    db: "{{ postgres_db }}"
+    filter: tables
+    login_host: "{{ postgres_host }}"
+    login_user: "{{ postgres_user }}"
+    login_password: "{{ postgres_password }}"
+    port: "{{ postgres_port }}"
+  register: pg_tables
+
+- name: Assert tables exist
+  ansible.builtin.assert:
+    that: "'{{ item }}' in pg_tables.tables"
+    fail_msg: "Table '{{ item }}' missing!"
+  loop: "{{ postgres_expected_tables }}"
+
+- name: Check required records exist
+  community.postgresql.postgresql_query:
+    db: "{{ postgres_db }}"
+    query: "{{ item.query }}"
+    login_host: "{{ postgres_host }}"
+    login_user: "{{ postgres_user }}"
+    login_password: "{{ postgres_password }}"
+    port: "{{ postgres_port }}"
+  register: pg_query
+  loop: "{{ postgres_expected_records }}"
+  loop_control:
+    label: "{{ item.query }}"
+
+- name: Validate returned rows
+  ansible.builtin.assert:
+    that: "pg_query.results[0].rows | length > 0"
+    fail_msg: "Record not found for query '{{ item.query }}'"
+  loop: "{{ postgres_expected_records }}"

@@ -1,39 +1,24 @@
 ---
-- name: test port {{ port }}
-  ansible.builtin.wait_for:
-    host: "localhost"
-    port: "{{ port }}"
-    state: started
-    delay: 0
-    timeout: 3
-  register: "output_port"
-  when: >
-    port_test and not docker_health_test and
-    not shell_test
+- name: Test required ports
+  include_tasks: test_ports.yml
 
-- name: Check container health {{ container_name }}
-  environment:
-    DOCKER_HOST: "unix:///run/user/{{ docker_user_uid }}/docker.sock"
-  community.docker.docker_container:
-    state: healthy
-  register: output_container_result
-  when: >
-    docker_health_test and not port_test and
-    not shell_test and docker_rootless
+- name: Test rootless Docker
+  when: verify_docker_rootless
+  include_tasks: test_docker_rootless.yml
 
-- name: Check container health {{ container_name }}
-  become: true
-  community.docker.docker_container:
-    state: healthy
-  register: output_container_result
-  when: >
-    docker_health_test and not port_test and
-    not shell_test and not docker_rootless
+- name: Test Docker containers
+  include_tasks: test_docker.yml
 
-- name: Check shell return value
-  ansible.builtin.shell: |
-    {{ shell_command | trim }}
-  register: output_shell_result
+- name: Test shell commands
+  include_tasks: test_shell.yml
+
+- name: Test PostgreSQL
   when: >
-    shell_test and not port_test and
-    not docker_health_test
+    postgres_db != "" or
+    postgres_expected_roles | length > 0 or
+    postgres_expected_tables | length > 0 or
+    postgres_expected_records | length > 0
+  include_tasks: test_postgres.yml
+
+- name: Test URI responses
+  include_tasks: test_uri.yml

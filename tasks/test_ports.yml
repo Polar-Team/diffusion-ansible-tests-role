@@ -1,0 +1,10 @@
+---
+- name: Check ports are listening
+  ansible.builtin.wait_for:
+    host: "{{ item.host | default('127.0.0.1') }}"
+    port: "{{ item.port }}"
+    timeout: "{{ item.timeout | default(5) }}"
+    state: started
+  loop: "{{ verify_ports }}"
+  loop_control:
+    label: "{{ item.port }}"
