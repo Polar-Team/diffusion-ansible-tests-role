@@ -1,60 +1,148 @@
 ---
-- name: Check Postgres DB exists
-  community.postgresql.postgresql_db:
-    name: "{{ postgres_db }}"
-    state: present
-    login_host: "{{ postgres_host }}"
-    login_user: "{{ postgres_user }}"
-    login_password: "{{ postgres_password }}"
-    port: "{{ postgres_port }}"
-  check_mode: true
+# This task verifies PostgreSQL database existence, roles, tables, and data records.
+#
+# Required connection variables:
+#   postgres_db: "mydb"           # Database name to check
+#   postgres_host: "localhost"    # PostgreSQL host
+#   postgres_user: "postgres"     # Database user with appropriate permissions
+#   postgres_password: "secret"   # Database password
+#   postgres_port: 5432           # PostgreSQL port (default: 5432)
+#
+# Required test definition variables:
+#   postgres_expected_roles:      # List of role names that must exist
+#     - "app_user"
+#     - "readonly_user"
+#
+#   postgres_expected_tables:     # List of table names that must exist (can be schema-qualified)
+#     - "users"
+#     - "public.orders"
+#
+#   postgres_expected_records:    # List of queries that must return at least one row
+#     - query: "SELECT * FROM users WHERE role = 'admin'"
+#       description: "Admin user exists"  # optional, for clearer error messages
+#     - query: "SELECT * FROM orders WHERE status = 'pending'"
+#       description: "Pending orders exist"
 
-- name: Check Postgres roles exist
-  community.postgresql.postgresql_info:
-    filter: roles
-    login_host: "{{ postgres_host }}"
-    login_user: "{{ postgres_user }}"
-    login_password: "{{ postgres_password }}"
-    port: "{{ postgres_port }}"
-  register: pg_roles
+- name: "Verify PostgreSQL database configuration and data"
+  block:
+    - name: Check Postgres DB exists
+      community.postgresql.postgresql_db:
+        name: "{{ postgres_db }}"
+        state: present
+        login_host: "{{ postgres_host }}"
+        login_user: "{{ postgres_user }}"
+        login_password: "{{ postgres_password }}"
+        port: "{{ postgres_port | default(5432) }}"
+      check_mode: true
+      register: db_check
+      failed_when: false
 
-- name: Assert required roles exist
-  ansible.builtin.assert:
-    that: "'{{ item }}' in pg_roles.roles"
-    fail_msg: "Postgres role '{{ item }}' missing!"
-  loop: "{{ postgres_expected_roles }}"
+    - name: Validate database exists
+      ansible.builtin.assert:
+        that:
+          - db_check is succeeded
+        fail_msg: "Database '{{ postgres_db }}' does not exist or is not accessible"
+        success_msg: "Database '{{ postgres_db }}' exists"
 
-- name: Check required tables exist
-  community.postgresql.postgresql_info:
-    db: "{{ postgres_db }}"
-    filter: tables
-    login_host: "{{ postgres_host }}"
-    login_user: "{{ postgres_user }}"
-    login_password: "{{ postgres_password }}"
-    port: "{{ postgres_port }}"
-  register: pg_tables
+    - name: Check Postgres roles exist
+      community.postgresql.postgresql_info:
+        filter: roles
+        login_host: "{{ postgres_host }}"
+        login_user: "{{ postgres_user }}"
+        login_password: "{{ postgres_password }}"
+        port: "{{ postgres_port | default(5432) }}"
+      register: pg_roles
 
-- name: Assert tables exist
-  ansible.builtin.assert:
-    that: "'{{ item }}' in pg_tables.tables"
-    fail_msg: "Table '{{ item }}' missing!"
-  loop: "{{ postgres_expected_tables }}"
+    - name: Assert required roles exist
+      ansible.builtin.assert:
+        that:
+          - item in (pg_roles.roles.keys() | list)
+        fail_msg: "PostgreSQL role '{{ item }}' is missing"
+        success_msg: "PostgreSQL role '{{ item }}' exists"
+        quiet: true
+      loop: "{{ postgres_expected_roles }}"
+      loop_control:
+        label: "Role: {{ item }}"
 
-- name: Check required records exist
-  community.postgresql.postgresql_query:
-    db: "{{ postgres_db }}"
-    query: "{{ item.query }}"
-    login_host: "{{ postgres_host }}"
-    login_user: "{{ postgres_user }}"
-    login_password: "{{ postgres_password }}"
-    port: "{{ postgres_port }}"
-  register: pg_query
-  loop: "{{ postgres_expected_records }}"
-  loop_control:
-    label: "{{ item.query }}"
+    - name: Check required tables exist
+      community.postgresql.postgresql_info:
+        db: "{{ postgres_db }}"
+        filter: tables
+        login_host: "{{ postgres_host }}"
+        login_user: "{{ postgres_user }}"
+        login_password: "{{ postgres_password }}"
+        port: "{{ postgres_port | default(5432) }}"
+      register: pg_tables
 
-- name: Validate returned rows
-  ansible.builtin.assert:
-    that: "pg_query.results[0].rows | length > 0"
-    fail_msg: "Record not found for query '{{ item.query }}'"
-  loop: "{{ postgres_expected_records }}"
+    - name: Extract table names from result
+      ansible.builtin.set_fact:
+        available_tables: "{{ pg_tables.tables[postgres_db] | dict2items | map(attribute='key') | list }}"
+
+    - name: Assert required tables exist
+      ansible.builtin.assert:
+        that:
+          - item in available_tables
+        fail_msg: "Table '{{ item }}' is missing from database '{{ postgres_db }}'"
+        success_msg: "Table '{{ item }}' exists"
+        quiet: true
+      loop: "{{ postgres_expected_tables }}"
+      loop_control:
+        label: "Table: {{ item }}"
+
+    - name: Verify data records exist
+      when: postgres_expected_records is defined and postgres_expected_records | length > 0
+      block:
+        - name: Execute query and validate results
+          block:
+            - name: "Execute: {{ item.description | default(item.query | truncate(60)) }}"
+              community.postgresql.postgresql_query:
+                db: "{{ postgres_db }}"
+                query: "{{ item.query }}"
+                login_host: "{{ postgres_host }}"
+                login_user: "{{ postgres_user }}"
+                login_password: "{{ postgres_password }}"
+                port: "{{ postgres_port | default(5432) }}"
+              register: query_result
+              failed_when: false
+
+            - name: "Validate query returned rows"
+              ansible.builtin.assert:
+                that:
+                  - query_result is succeeded
+                  - query_result.rowcount is defined
+                  - query_result.rowcount > 0
+                fail_msg: |
+                  [FAIL] Query validation failed
+                  {% if item.description is defined %}Description: {{ item.description }}{% endif %}
+                  Query: {{ item.query }}
+                  Expected: At least 1 row
+                  Actual: {{ query_result.rowcount | default(0) }} rows
+                  {% if query_result is failed %}Error: {{ query_result.msg | default('Query execution failed') }}{% endif %}
+                success_msg: |
+                  [PASS] Query returned {{ query_result.rowcount }} row(s)
+                  {% if item.description is defined %}Description: {{ item.description }}{% endif %}
+                quiet: true
+
+          rescue:
+            - name: Log query validation failure
+              ansible.builtin.debug:
+                msg: |
+                  [ERROR] Query validation failed
+                  {% if item.description is defined %}Description: {{ item.description }}{% endif %}
+                  Query: {{ item.query }}
+                  Error: {{ ansible_failed_result.msg | default('Unknown error') }}
+              failed_when: true
+
+          loop: "{{ postgres_expected_records }}"
+          loop_control:
+            label: "{{ item.description | default(item.query | truncate(50)) }}"
+
+  rescue:
+    - name: Log PostgreSQL verification failure
+      ansible.builtin.debug:
+        msg: |
+          [ERROR] PostgreSQL verification failed
+          Database: {{ postgres_db | default('undefined') }}
+          Host: {{ postgres_host | default('undefined') }}
+          Error: {{ ansible_failed_result.msg | default('Connection or permission issue') }}
+      failed_when: true

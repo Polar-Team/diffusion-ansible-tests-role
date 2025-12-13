@@ -1,0 +1,62 @@
+---
+# This task executes commands and validates that expected output patterns appear in stdout.
+# verify_output_in_cmd should be a list of dicts with 'cmd' and 'output' keys:
+# verify_output_in_cmd:
+#   - cmd: "echo 'Hello World'"
+#     output: "Hello"
+#     exact_match: false  # optional, defaults to false for substring matching
+#     use_shell: false    # optional, defaults to false (uses command module)
+
+- name: Execute commands and verify expected output patterns
+  when:
+    - verify_output_in_cmd is defined
+    - verify_output_in_cmd | length > 0
+  block:
+    - name: Set expected output pattern
+      ansible.builtin.set_fact:
+        expected_output_pattern: "{{ item.output }}"
+        use_exact_match: "{{ item.exact_match | default(false) }}"
+        use_shell_module: "{{ item.use_shell | default(false) }}"
+
+    - name: "Execute command: {{ item.cmd }}"
+      ansible.builtin.command: "{{ item.cmd }}"
+      register: command_execution_result
+      failed_when: false
+      changed_when: false
+      when: not use_shell_module
+
+    - name: "Execute shell command: {{ item.cmd }}"
+      ansible.builtin.shell: "{{ item.cmd }}"
+      register: shell_execution_result
+      failed_when: false
+      changed_when: false
+      when: use_shell_module
+
+    - name: Combine results
+      ansible.builtin.set_fact:
+        execution_result: "{{ shell_execution_result if use_shell_module else command_execution_result }}"
+
+    - name: "Validate output contains expected pattern for: {{ item.cmd }}"
+      ansible.builtin.assert:
+        that:
+          - execution_result.rc == 0
+          - (not use_exact_match and expected_output_pattern in execution_result.stdout) or (use_exact_match and execution_result.stdout == expected_output_pattern)
+        fail_msg: >-
+          Command '{{ item.cmd }}' output validation failed:
+          Expected pattern: '{{ expected_output_pattern }}'
+          Match type: {{ 'exact' if use_exact_match else 'substring' }}
+          Actual stdout: '{{ execution_result.stdout }}'
+          Return code: {{ execution_result.rc }}
+        success_msg: "Command '{{ item.cmd }}' produced expected output pattern: '{{ expected_output_pattern }}'"
+
+  rescue:
+    - name: Log command verification failure
+      ansible.builtin.debug:
+        msg: >-
+          Failed to verify command '{{ item.cmd }}':
+          Error: {{ ansible_failed_result.msg | default('Unknown error') }}
+      failed_when: true
+
+  loop: "{{ verify_output_in_cmd }}"
+  loop_control:
+    label: "Command: {{ item.cmd | truncate(50) }}"

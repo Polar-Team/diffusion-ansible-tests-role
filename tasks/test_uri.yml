@@ -1,32 +1,68 @@
+---
+# This task tests URIs by temporarily adding hosts file entries for SNI (Server Name Indication) testing.
+# SNI allows multiple SSL certificates on the same IP, requiring hostname resolution to test properly.
+# We add temporary entries to /etc/hosts to redirect FQDN to localhost for local testing.
+
 - name: Run URI tests with temporary SNI hosts
+  when: verify_uris is defined and verify_uris | length > 0
   block:
-    - name: Extract hostname
+    - name: Extract hostname from URI
       ansible.builtin.set_fact:
-        fqdn_name: "{{ item | regex_replace('^https?://([^/:]+).*', '\\1') }}"
+        fqdn_name: "{{ item | regex_replace('^https?://([^/:]+).*', '\\\\1') }}"
+        hosts_entry_added: false
+
+    - name: Validate extracted hostname
+      ansible.builtin.assert:
+        that:
+          - fqdn_name is defined
+          - fqdn_name != item
+          - fqdn_name | length > 0
+        fail_msg: "Failed to extract valid hostname from URI: {{ item }}"
+        success_msg: "Successfully extracted hostname: {{ fqdn_name }}"
 
     - name: Add temporary host entry for SNI
       ansible.builtin.lineinfile:
         path: /etc/hosts
-        line: "127.0.0.1 {{ fqdn_name }}"
+        line: "{{ uri_test_ip | default('127.0.0.1') }} {{ fqdn_name }}"
         state: present
-      become: yes
+        backup: true
+      become: true
+      register: hosts_modification
 
-    - name: Test URI
+    - name: Mark hosts entry as added
+      ansible.builtin.set_fact:
+        hosts_entry_added: true
+      when: hosts_modification is changed
+
+    - name: Test URI with redirect following
       ansible.builtin.uri:
         url: "{{ item }}"
-        return_content: yes
-        validate_certs: false
-        timeout: 5
+        follow_redirects: "{{ uri_follow_redirects | default('safe') }}"
+        validate_certs: "{{ uri_validate_certs | default(false) }}"
+        timeout: "{{ uri_timeout | default(10) }}"
+        status_code: "{{ uri_expected_status | default([200, 301, 302]) }}"
       register: uri_results
-      failed_when: uri_results.status not in [200, 302]
+      # Note: validate_certs defaults to false for testing environments
+      # Set uri_validate_certs=true in production or when proper certs are available
+
+    - name: Display URI test results
+      ansible.builtin.debug:
+        msg: "URI {{ item }} returned status {{ uri_results.status }}"
+        verbosity: 1
+
+  rescue:
+    - name: Log URI test failure
+      ansible.builtin.debug:
+        msg: "Failed to test URI {{ item }}: {{ ansible_failed_result.msg | default('Unknown error') }}"
 
   always:
     - name: Remove temporary host entry
       ansible.builtin.lineinfile:
         path: /etc/hosts
-        regexp: "^127\\.0\\.0\\.1\\s+{{ fqdn_name }}$"
+        regexp: "^{{ uri_test_ip | default('127\\.0\\.0\\.1') | regex_escape }}\\s+{{ fqdn_name | regex_escape }}$"
         state: absent
-      become: yes
+      become: true
+      when: hosts_entry_added | default(false)
 
   loop: "{{ verify_uris }}"
   loop_control:

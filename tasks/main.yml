@@ -10,7 +10,7 @@
   include_tasks: test_docker.yml
 
 - name: Test shell commands
-  include_tasks: test_shell.yml
+  include_tasks: test_cmd.yml
 
 - name: Test PostgreSQL
   when: >

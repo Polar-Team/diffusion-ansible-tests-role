@@ -1,38 +1,125 @@
 ---
-- name: "Verify docker containers"
-  when: verify_docker_containers | length > 0
+# This task verifies Docker container states, images, and health status.
+# verify_docker_containers should be a list of dicts with required 'name' and 'state' keys:
+# verify_docker_containers:
+#   - name: "my-container"
+#     state: "running"
+#     image: "nginx:latest"  # optional - validates container is using this image
+#     health: "healthy"      # optional - validates health check status (requires health check configured)
+
+- name: "Verify Docker container states and configurations"
+  when:
+    - verify_docker_containers is defined
+    - verify_docker_containers | length > 0
+  environment: "{{ verify_docker_env | default({}) }}"
   block:
-    - name: "Inspect container {{ item.name }}"
-      community.docker.docker_container_info:
-        name: "{{ item.name }}"
-      environment: "{{ verify_docker_env }}"
-      register: container_info
+    - name: Validate container definitions
+      ansible.builtin.assert:
+        that:
+          - item.name is defined
+          - item.name | length > 0
+          - item.state is defined
+        fail_msg: "Container definition missing required fields: {{ item }}"
+        quiet: true
+      loop: "{{ verify_docker_containers }}"
+      loop_control:
+        label: "{{ item.name | default('unnamed') }}"
+
+    - name: Inspect and validate all containers
+      block:
+        - name: "Inspect container {{ item.name }}"
+          community.docker.docker_container_info:
+            name: "{{ item.name }}"
+          register: current_container_info
+          failed_when: false
+
+        - name: Check if container exists
+          ansible.builtin.assert:
+            that:
+              - current_container_info.exists | default(false)
+            fail_msg: "Container '{{ item.name }}' does not exist"
+            success_msg: "Container '{{ item.name }}' found"
+            quiet: true
+
+        - name: Validate container structure
+          ansible.builtin.assert:
+            that:
+              - current_container_info.container is defined
+              - current_container_info.container.State is defined
+              - current_container_info.container.Config is defined
+            fail_msg: "Container '{{ item.name }}' has unexpected structure - missing State or Config"
+            quiet: true
+
+        - name: "Validate container '{{ item.name }}' state"
+          ansible.builtin.assert:
+            that:
+              - current_container_info.container.State.Status == item.state
+            fail_msg: >-
+              Container '{{ item.name }}' state mismatch:
+              Expected: {{ item.state }}
+              Actual: {{ current_container_info.container.State.Status }}
+            quiet: true
+
+        - name: "Validate container '{{ item.name }}' image"
+          when: item.image is defined
+          ansible.builtin.assert:
+            that:
+              - current_container_info.container.Config.Image == item.image
+            fail_msg: >-
+              Container '{{ item.name }}' image mismatch:
+              Expected: {{ item.image }}
+              Actual: {{ current_container_info.container.Config.Image }}
+            quiet: true
+
+        - name: "Check if container '{{ item.name }}' has health check configured"
+          when: item.health is defined
+          ansible.builtin.assert:
+            that:
+              - current_container_info.container.State.Health is defined
+            fail_msg: >-
+              Container '{{ item.name }}' health check validation failed:
+              Health check is not configured for this container, but expected health status: {{ item.health }}
+              To fix: Either configure a health check in the container, or remove 'health' from the test definition
+            quiet: true
+
+        - name: "Validate container '{{ item.name }}' health status"
+          when:
+            - item.health is defined
+            - current_container_info.container.State.Health is defined
+          ansible.builtin.assert:
+            that:
+              - current_container_info.container.State.Health.Status == item.health
+            fail_msg: >-
+              Container '{{ item.name }}' health status mismatch:
+              Expected: {{ item.health }}
+              Actual: {{ current_container_info.container.State.Health.Status }}
+            quiet: true
+
+        - name: "Container '{{ item.name }}' validation summary"
+          ansible.builtin.debug:
+            msg: >-
+              ✓ Container '{{ item.name }}' passed all validations
+              State: {{ current_container_info.container.State.Status }}
+              {% if item.image is defined %}Image: {{ current_container_info.container.Config.Image }}{% endif %}
+              {% if item.health is defined and current_container_info.container.State.Health is defined %}Health: {{ current_container_info.container.State.Health.Status }}{% endif %}
+            verbosity: 1
+
+      rescue:
+        - name: Log container validation failure
+          ansible.builtin.debug:
+            msg: >-
+              ✗ Failed to validate container '{{ item.name }}':
+              {{ ansible_failed_result.msg | default('Unknown error') }}
+          failed_when: true
+
       loop: "{{ verify_docker_containers }}"
       loop_control:
         label: "{{ item.name }}"
 
-    - name: "Assert container running"
-      assert:
-        that:
-          - container_info.results[idx].container.State.Status == item.state
-      loop: "{{ verify_docker_containers }}"
-      loop_control:
-        index_var: idx
-
-    - name: "Assert container image"
-      when: item.image is defined
-      assert:
-        that:
-          - container_info.results[idx].container.Config.Image == item.image
-      loop: "{{ verify_docker_containers }}"
-      loop_control:
-        index_var: idx
-
-    - name: "Assert container health"
-      when: item.health is defined
-      assert:
-        that:
-          - container_info.results[idx].container.State.Health.Status == item.health
-      loop: "{{ verify_docker_containers }}"
-      loop_control:
-        index_var: idx
+  rescue:
+    - name: Log Docker verification failure
+      ansible.builtin.debug:
+        msg: >-
+          ✗ Docker container verification failed:
+          {{ ansible_failed_result.msg | default('Docker daemon may be unreachable or containers not properly defined') }}
+      failed_when: true

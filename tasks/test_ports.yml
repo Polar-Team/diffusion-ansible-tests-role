@@ -1,10 +1,93 @@
 ---
-- name: Check ports are listening
-  ansible.builtin.wait_for:
-    host: "{{ item.host | default('127.0.0.1') }}"
-    port: "{{ item.port }}"
-    timeout: "{{ item.timeout | default(5) }}"
-    state: started
-  loop: "{{ verify_ports }}"
-  loop_control:
-    label: "{{ item.port }}"
+# This task verifies that specified network ports are in the expected state (listening or not listening).
+# verify_ports should be a list of dicts with required 'port' key:
+# verify_ports:
+#   - port: 8080
+#     host: "127.0.0.1"      # optional, defaults to 127.0.0.1
+#     timeout: 10             # optional, defaults to 5 seconds
+#     state: "started"        # optional, "started" (listening) or "stopped" (not listening), defaults to "started"
+#     description: "Web API"  # optional, for clearer output
+
+- name: "Verify network port states"
+  when:
+    - verify_ports is defined
+    - verify_ports | length > 0
+  block:
+    - name: Validate port definitions
+      ansible.builtin.assert:
+        that:
+          - item.port is defined
+          - item.port | int > 0
+          - item.port | int <= 65535
+          - (item.state | default('started')) in ['started', 'stopped', 'present', 'absent']
+        fail_msg: "Invalid port definition: {{ item }} (port must be 1-65535, state must be started/stopped/present/absent)"
+        quiet: true
+      loop: "{{ verify_ports }}"
+      loop_control:
+        label: "Port {{ item.port }}"
+
+    - name: Check each port state
+      block:
+        - name: "Check if port {{ item.port }} is {{ item.state | default('started') }}"
+          ansible.builtin.wait_for:
+            host: "{{ item.host | default('127.0.0.1') }}"
+            port: "{{ item.port }}"
+            timeout: "{{ item.timeout | default(5) }}"
+            state: "{{ item.state | default('started') }}"
+            delay: "{{ item.delay | default(0) }}"
+            sleep: "{{ item.sleep | default(1) }}"
+          register: port_check_result
+          failed_when: false
+          changed_when: false
+
+        - name: "Validate port {{ item.port }} is in expected state"
+          ansible.builtin.assert:
+            that:
+              - port_check_result is succeeded or (port_check_result.msg is defined and 'Timeout' in port_check_result.msg and (item.state | default('started')) in ['stopped', 'absent'])
+            fail_msg: >-
+              Port {{ item.port }} state validation failed:
+              Expected: {{ item.state | default('started') }} on {{ item.host | default('127.0.0.1') }}
+              Result: {{ 'Listening' if port_check_result is succeeded else 'Not listening or unreachable' }}
+              Error: {{ port_check_result.msg | default('Unknown') }}
+              {% if item.description is defined %}Description: {{ item.description }}{% endif %}
+            success_msg: >-
+              ✓ Port {{ item.port }} is {{ item.state | default('started') }} on {{ item.host | default('127.0.0.1') }}
+              {% if item.description is defined %}({{ item.description }}){% endif %}
+            quiet: true
+
+        - name: "Record successful port check for {{ item.port }}"
+          ansible.builtin.set_fact:
+            port_check_results: "{{ port_check_results | default([]) + [{'port': item.port, 'host': item.host | default('127.0.0.1'), 'state': item.state | default('started'), 'status': 'passed'}] }}"
+
+      rescue:
+        - name: "Record failed port check for {{ item.port }}"
+          ansible.builtin.set_fact:
+            port_check_results: "{{ port_check_results | default([]) + [{'port': item.port, 'host': item.host | default('127.0.0.1'), 'state': item.state | default('started'), 'status': 'failed', 'error': ansible_failed_result.msg | default('Unknown error')}] }}"
+
+        - name: Log port check failure
+          ansible.builtin.debug:
+            msg: >-
+              ✗ Failed to validate port {{ item.port }} on {{ item.host | default('127.0.0.1') }}:
+              {{ ansible_failed_result.msg | default('Unknown error') }}
+          failed_when: true
+
+      loop: "{{ verify_ports }}"
+      loop_control:
+        label: "Port {{ item.port }} on {{ item.host | default('127.0.0.1') }}"
+
+    - name: Display port check summary
+      ansible.builtin.debug:
+        msg: >-
+          Port verification summary:
+          Total: {{ verify_ports | length }}
+          Passed: {{ port_check_results | selectattr('status', 'equalto', 'passed') | list | length }}
+          Failed: {{ port_check_results | selectattr('status', 'equalto', 'failed') | list | length }}
+        verbosity: 0
+
+  rescue:
+    - name: Log port verification failure
+      ansible.builtin.debug:
+        msg: >-
+          ✗ Port verification failed:
+          {{ ansible_failed_result.msg | default('Port definitions may be invalid or network unreachable') }}
+      failed_when: true
