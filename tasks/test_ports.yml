@@ -30,12 +30,12 @@
       block:
         - name: "Check if port {{ tport.port }} is {{ tport.state | default('started') }}"
           ansible.builtin.wait_for:
-            host: "{{ item.host | default('127.0.0.1') }}"
-            port: "{{ item.port }}"
-            timeout: "{{ item.timeout | default(5) }}"
-            state: "{{ item.state | default('started') }}"
-            delay: "{{ item.delay | default(0) }}"
-            sleep: "{{ item.sleep | default(1) }}"
+            host: "{{ tport.host | default('127.0.0.1') }}"
+            port: "{{ tport.port }}"
+            timeout: "{{ tport.timeout | default(5) }}"
+            state: "{{ tport.state | default('started') }}"
+            delay: "{{ tport.delay | default(0) }}"
+            sleep: "{{ tport.sleep | default(1) }}"
           register: port_check_result
           failed_when: false
           changed_when: false
@@ -43,26 +43,26 @@
         - name: "Validate port {{ tport.port }} is in expected state"
           ansible.builtin.assert:
             that:
-              - port_check_result is succeeded or (port_check_result.msg is defined and 'Timeout' in port_check_result.msg and (item.state | default('started')) in ['stopped', 'absent'])
+              - port_check_result is succeeded or (port_check_result.msg is defined and 'Timeout' in port_check_result.msg and (tport.state | default('started')) in ['stopped', 'absent'])
             fail_msg: >-
-              Port {{ item.port }} state validation failed:
-              Expected: {{ item.state | default('started') }} on {{ item.host | default('127.0.0.1') }}
+              Port {{ tport.port }} state validation failed:
+              Expected: {{ tport.state | default('started') }} on {{ tport.host | default('127.0.0.1') }}
               Result: {{ 'Listening' if port_check_result is succeeded else 'Not listening or unreachable' }}
               Error: {{ port_check_result.msg | default('Unknown') }}
-              {% if item.description is defined %}Description: {{ item.description }}{% endif %}
+              {% if tport.description is defined %}Description: {{ tport.description }}{% endif %}
             success_msg: >-
-              ✓ Port {{ item.port }} is {{ item.state | default('started') }} on {{ item.host | default('127.0.0.1') }}
-              {% if item.description is defined %}({{ item.description }}){% endif %}
+              ✓ Port {{ tport.port }} is {{ tport.state | default('started') }} on {{ tport.host | default('127.0.0.1') }}
+              {% if tport.description is defined %}({{ tport.description }}){% endif %}
             quiet: true
 
         - name: "Record successful port check for {{ tport.port }}"
           ansible.builtin.set_fact:
-            port_check_results: "{{ port_check_results | default([]) + [{'port': item.port, 'host': item.host | default('127.0.0.1'), 'state': item.state | default('started'), 'status': 'passed'}] }}"
+            port_check_results: "{{ port_check_results | default([]) + [{'port': tport.port, 'host': tport.host | default('127.0.0.1'), 'state': tport.state | default('started'), 'status': 'passed'}] }}"
 
       rescue:
         - name: "Record failed port check for {{ tport.port }}"
           ansible.builtin.set_fact:
-            port_check_results: "{{ port_check_results | default([]) + [{'port': item.port, 'host': item.host | default('127.0.0.1'), 'state': item.state | default('started'), 'status': 'failed', 'error': ansible_failed_result.msg | default('Unknown error')}] }}"
+            port_check_results: "{{ port_check_results | default([]) + [{'port': tport.port, 'host': tport.host | default('127.0.0.1'), 'state': tport.state | default('started'), 'status': 'failed', 'error': ansible_failed_result.msg | default('Unknown error')}] }}"
 
         - name: Log port check failure
           ansible.builtin.debug:
