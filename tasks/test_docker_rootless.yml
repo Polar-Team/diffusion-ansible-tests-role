@@ -27,7 +27,7 @@
       when: not docker_rootless_socket.stat.exists
       set_fact:
         verify_docker_env:
-          PATH: "{{ ansible_env.PATH }}"
+          PATH: "$PATH"
 
 - set_fact:
     verify_docker_env: "{{ verify_docker_env | combine(verify_docker_env_override, recursive=True) }}"
