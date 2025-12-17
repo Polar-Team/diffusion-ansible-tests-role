@@ -3,7 +3,8 @@
   include_tasks: test_ports.yml
   loop: "{{ verify_ports }}"
   loop_control:
-    label: "Port {{ item.port }} on {{ item.host | default('127.0.0.1') }}"
+    label: "Port {{ port.port }} on {{ port.host | default('127.0.0.1') }}"
+    loop_var: "port"
 
 - name: Test rootless Docker
   when: verify_docker_rootless
