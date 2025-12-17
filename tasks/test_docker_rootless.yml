@@ -1,6 +1,6 @@
 ---
 - name: "Auto-detect Docker host for rootless mode"
-  when: verify_docker_rootless_autodetect
+  when: verify_docker_rootless
   block:
     - name: "Get UID of verify_docker_user"
       ansible.builtin.command: "id -u {{ verify_docker_user }}"
