@@ -3,6 +3,7 @@ verify_ports: []
 verify_docker_containers: []
 verify_docker_user: "{{ docker_user | default('root') }}"
 verify_docker_rootless: true
+verify_docker_env_override: []
 verify_output_in_cmd: []
 verify_uris: []
 
