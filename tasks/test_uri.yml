@@ -8,16 +8,16 @@
   block:
     - name: Extract hostname from URI
       ansible.builtin.set_fact:
-        fqdn_name: "{{ item | regex_replace('^https?://([^/:]+).*', '\\\\1') }}"
+        fqdn_name: "{{ uri | regex_replace('^https?://([^/:]+).*', '\\\\1') }}"
         hosts_entry_added: false
 
     - name: Validate extracted hostname
       ansible.builtin.assert:
         that:
           - fqdn_name is defined
-          - fqdn_name != item
+          - fqdn_name != uri
           - fqdn_name | length > 0
-        fail_msg: "Failed to extract valid hostname from URI: {{ item }}"
+        fail_msg: "Failed to extract valid hostname from URI: {{ uri }}"
         success_msg: "Successfully extracted hostname: {{ fqdn_name }}"
 
     - name: Add temporary host entry for SNI
@@ -36,7 +36,7 @@
 
     - name: Test URI with redirect following
       ansible.builtin.uri:
-        url: "{{ item }}"
+        url: "{{ uri }}"
         follow_redirects: "{{ uri_follow_redirects | default('safe') }}"
         validate_certs: "{{ uri_validate_certs | default(false) }}"
         timeout: "{{ uri_timeout | default(10) }}"
@@ -47,13 +47,13 @@
 
     - name: Display URI test results
       ansible.builtin.debug:
-        msg: "URI {{ item }} returned status {{ uri_results.status }}"
+        msg: "URI {{ uri }} returned status {{ uri_results.status }}"
         verbosity: 1
 
   rescue:
     - name: Log URI test failure
       ansible.builtin.debug:
-        msg: "Failed to test URI {{ item }}: {{ ansible_failed_result.msg | default('Unknown error') }}"
+        msg: "Failed to test URI {{ uri }}: {{ ansible_failed_result.msg | default('Unknown error') }}"
 
   always:
     - name: Remove temporary host entry
@@ -63,7 +63,3 @@
         state: absent
       become: true
       when: hosts_entry_added | default(false)
-
-  loop: "{{ verify_uris }}"
-  loop_control:
-    label: "{{ item }}"

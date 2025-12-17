@@ -19,6 +19,10 @@
 
 - name: Test shell commands
   include_tasks: test_cmd.yml
+  loop: "{{ verify_output_in_cmd }}"
+  loop_control:
+    label: "Command: {{ command.cmd | truncate(50) }}"
+    loop_var: "command"
 
 - name: Test PostgreSQL
   when: >
@@ -30,3 +34,7 @@
 
 - name: Test URI responses
   include_tasks: test_uri.yml
+  loop: "{{ verify_uris }}"
+  loop_control:
+    label: "{{ uri }}"
+    loop_var: "uri"

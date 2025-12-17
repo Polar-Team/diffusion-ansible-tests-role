@@ -104,6 +104,9 @@
                 port: "{{ postgres_port | default(5432) }}"
               register: query_result
               failed_when: false
+              loop: "{{ postgres_expected_records }}"
+              loop_control:
+                label: "{{ item.description | default(item.query | truncate(50)) }}"
 
             - name: "Validate query returned rows"
               ansible.builtin.assert:
@@ -122,6 +125,9 @@
                   [PASS] Query returned {{ query_result.rowcount }} row(s)
                   {% if item.description is defined %}Description: {{ item.description }}{% endif %}
                 quiet: true
+                loop: "{{ postgres_expected_records }}"
+                loop_control:
+                  label: "{{ item.description | default(item.query | truncate(50)) }}"
 
           rescue:
             - name: Log query validation failure
@@ -132,10 +138,9 @@
                   Query: {{ item.query }}
                   Error: {{ ansible_failed_result.msg | default('Unknown error') }}
               failed_when: true
-
-          loop: "{{ postgres_expected_records }}"
-          loop_control:
-            label: "{{ item.description | default(item.query | truncate(50)) }}"
+              loop: "{{ postgres_expected_records }}"
+              loop_control:
+                label: "{{ item.description | default(item.query | truncate(50)) }}"
 
   rescue:
     - name: Log PostgreSQL verification failure
