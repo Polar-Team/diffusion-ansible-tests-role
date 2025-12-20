@@ -7,7 +7,7 @@
     loop_var: "tport"
 
 - name: Test rootless Docker
-  when: verify_docker_rootless
+  when: verify_docker_rootless and verify_docker_containers | length > 0
   include_tasks: test_docker_rootless.yml
 
 - name: Test Docker containers
