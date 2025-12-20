@@ -44,6 +44,7 @@
           ansible.builtin.assert:
             that:
               - port_check_result is succeeded 
+            fail_msg: >-
               Port {{ tport.port }} state validation failed:
               Expected: {{ tport.state | default('started') }} on {{ tport.host | default('127.0.0.1') }}
               Result: {{ 'Listening' if port_check_result is succeeded else 'Not listening or unreachable' }}
