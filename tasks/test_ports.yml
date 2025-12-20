@@ -40,6 +40,10 @@
           failed_when: false
           changed_when: false
 
+        - name: Debug
+          ansible.builtin.debug:
+            msg: "{{ port_check_result }}"
+
         - name: "Validate port {{ tport.port }} is in expected state"
           ansible.builtin.assert:
             that:
