@@ -53,7 +53,7 @@
             success_msg: >-
               ✓ Port {{ tport.port }} is {{ tport.state | default('started') }} on {{ tport.host | default('127.0.0.1') }}
               {% if tport.description is defined %}({{ tport.description }}){% endif %}
-            quiet: true
+            quiet: false
 
         - name: "Record successful port check for {{ tport.port }}"
           ansible.builtin.set_fact:
