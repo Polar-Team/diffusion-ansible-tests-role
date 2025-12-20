@@ -40,10 +40,6 @@
           failed_when: false
           changed_when: false
 
-        - name: Debug
-          ansible.builtin.debug:
-            msg: "{{ port_check_result }}"
-
         - name: "Validate port {{ tport.port }} is in expected state"
           ansible.builtin.assert:
             that:
@@ -59,7 +55,7 @@
             success_msg: >-
               ✓ Port {{ tport.port }} is {{ tport.state | default('started') }} on {{ tport.host | default('127.0.0.1') }}
               {% if tport.description is defined %}({{ tport.description }}){% endif %}
-            quiet: false
+            quiet: true
 
         - name: "Record successful port check for {{ tport.port }}"
           ansible.builtin.set_fact:
