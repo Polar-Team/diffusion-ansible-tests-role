@@ -1,0 +1,87 @@
+---
+# Verify playbook - Uses tests from tests/ directory
+# Diffusion copies tests/ to molecule/org.role/molecule/default/tests
+- name: Verify
+  hosts: all
+  gather_facts: true
+  become: true
+
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+      tags: always
+
+    - name: Set default vars
+      ansible.builtin.set_fact:
+        verify_ports: []
+        verify_docker_containers: []
+        verify_docker_rootless: false
+        verify_output_in_cmd: []
+        verify_uris: []
+        postgres_host: "127.0.0.1"
+        postgres_port: 5432
+        postgres_db: ""
+        postgres_user: ""
+        postgres_password: ""
+        postgres_expected_tables: []
+        postgres_expected_records: []
+        postgres_expected_roles: []
+      tags: always
+
+    - name: Include port tests
+      ansible.builtin.include_tasks:
+        file: "{{ playbook_dir }}/tests/ports/test_ports.yml"
+        apply:
+          tags:
+            - ports
+            - all
+      tags:
+        - ports
+        - all
+
+    - name: Include Docker tests
+      ansible.builtin.include_tasks:
+        file: "{{ playbook_dir }}/tests/docker/test_docker.yml"
+        apply:
+          tags:
+            - docker
+            - all
+      tags:
+        - docker
+        - all
+
+    - name: Include command tests
+      ansible.builtin.include_tasks:
+        file: "{{ playbook_dir }}/tests/cmd/test_cmd.yml"
+        apply:
+          tags:
+            - cmd
+            - all
+      tags:
+        - cmd
+        - all
+
+    - name: Include PostgreSQL tests
+      ansible.builtin.include_tasks:
+        file: "{{ playbook_dir }}/tests/postgres/test_postgres.yml"
+        apply:
+          tags:
+            - postgres
+            - all
+      tags:
+        - postgres
+        - all
+
+    - name: Include URI tests
+      ansible.builtin.include_tasks:
+        file: "{{ playbook_dir }}/tests/uri/test_uri.yml"
+        apply:
+          tags:
+            - uri
+            - all
+      tags:
+        - uri
+        - all

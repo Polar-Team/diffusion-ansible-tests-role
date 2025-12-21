@@ -1,0 +1,73 @@
+---
+# Setup for Docker tests
+- name: Install Docker
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - python3-docker
+    state: present
+
+- name: Start Docker service
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Create running containers with health checks
+  community.docker.docker_container:
+    name: "{{ item.name }}"
+    image: "{{ item.image }}"
+    state: started
+    healthcheck:
+      test: "{{ item.healthcheck }}"
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  loop:
+    - name: test-nginx-healthy
+      image: nginx:alpine
+      healthcheck:
+        ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost"]
+    - name: test-redis-healthy
+      image: redis:alpine
+      healthcheck: ["CMD", "redis-cli", "ping"]
+
+- name: Create running container without health check
+  community.docker.docker_container:
+    name: test-busybox-running
+    image: busybox:latest
+    state: started
+    command: sleep 3600
+
+- name: Create stopped container
+  community.docker.docker_container:
+    name: test-nginx-stopped
+    image: nginx:alpine
+    state: started
+
+- name: Stop the container
+  community.docker.docker_container:
+    name: test-nginx-stopped
+    state: stopped
+
+- name: Create paused container
+  community.docker.docker_container:
+    name: test-alpine-paused
+    image: alpine:latest
+    state: started
+    command: sleep 3600
+
+- name: Check if container is already paused
+  ansible.builtin.shell: docker inspect -f '{% raw %}{{.State.Paused}}{% endraw %}' test-alpine-paused
+  register: container_paused
+  changed_when: false
+  failed_when: false
+
+- name: Pause the container
+  ansible.builtin.command: docker pause test-alpine-paused
+  when: container_paused.stdout != "true"
+  changed_when: false
+
+- name: Wait for healthy containers
+  ansible.builtin.pause:
+    seconds: 15

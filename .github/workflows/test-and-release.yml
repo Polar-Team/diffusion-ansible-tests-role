@@ -1,0 +1,166 @@
+---
+name: Test and Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Run Diffusion Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      docker:
+        image: docker:24-dind
+        options: --privileged
+    
+    container:
+      image: ubuntu:22.04
+      options: --privileged -v /var/run/docker.sock:/var/run/docker.sock
+    
+    steps:
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y git curl wget python3 python3-pip ca-certificates jq
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Docker CLI
+        run: |
+          apt-get install -y apt-transport-https gnupg lsb-release
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+          apt-get update
+          apt-get install -y docker-ce-cli
+
+      - name: Install Diffusion
+        run: |
+          LATEST_RELEASE=$(curl -s https://api.github.com/repos/Polar-Team/diffusion/releases/latest | jq -r .tag_name)
+          ARCH=$(dpkg --print-architecture)
+          if [ "$ARCH" = "amd64" ]; then
+            DOWNLOAD_URL="https://github.com/Polar-Team/diffusion/releases/download/${LATEST_RELEASE}/diffusion-linux-amd64"
+          elif [ "$ARCH" = "arm64" ]; then
+            DOWNLOAD_URL="https://github.com/Polar-Team/diffusion/releases/download/${LATEST_RELEASE}/diffusion-linux-arm64"
+          else
+            echo "Unsupported architecture: $ARCH"
+            exit 1
+          fi
+          wget -O /usr/local/bin/diffusion "$DOWNLOAD_URL"
+          chmod +x /usr/local/bin/diffusion
+          diffusion --version
+
+      - name: Create and converge test environment
+        run: |
+          diffusion molecule
+
+      - name: Run verification tests
+        run: |
+          diffusion molecule --verify
+
+  release:
+    name: Create Release
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get latest tag
+        id: get_tag
+        run: |
+          # Get the latest tag, or use v0.0.0 if no tags exist
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          
+          # Parse version numbers
+          VERSION=${LATEST_TAG#v}
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f2)
+          PATCH=$(echo $VERSION | cut -d. -f3)
+          
+          # Increment patch version
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="v${MAJOR}.${MINOR}.${NEW_PATCH}"
+          
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "Latest tag: $LATEST_TAG"
+          echo "New version: $NEW_VERSION"
+
+      - name: Create and push tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          NEW_VERSION="${{ steps.get_tag.outputs.new_version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
+          git push origin "$NEW_VERSION"
+
+      - name: Generate changelog
+        id: changelog
+        run: |
+          LATEST_TAG="${{ steps.get_tag.outputs.latest_tag }}"
+          NEW_VERSION="${{ steps.get_tag.outputs.new_version }}"
+          
+          # Generate changelog from commits since last tag
+          if [ "$LATEST_TAG" != "v0.0.0" ]; then
+            CHANGELOG=$(git log ${LATEST_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          else
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          fi
+          
+          # Save to file for multiline handling
+          echo "$CHANGELOG" > /tmp/changelog.txt
+          
+          # Create release body
+          cat > /tmp/release_body.md <<EOF
+          ## Changes
+          
+          $CHANGELOG
+          
+          ## Installation
+          
+          \`\`\`bash
+          ansible-galaxy role install polar.diffusion_tests
+          \`\`\`
+          
+          Or add to \`requirements.yml\`:
+          
+          \`\`\`yaml
+          roles:
+            - name: polar.diffusion_tests
+              version: $NEW_VERSION
+          \`\`\`
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.get_tag.outputs.new_version }}
+          name: Release ${{ steps.get_tag.outputs.new_version }}
+          body_path: /tmp/release_body.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to Ansible Galaxy
+        if: success()
+        run: |
+          echo "To publish to Ansible Galaxy, configure GALAXY_API_KEY secret"
+          echo "Then run: ansible-galaxy role import --api-key \$GALAXY_API_KEY polar diffusion_tests"
+        env:
+          GALAXY_API_KEY: ${{ secrets.GALAXY_API_KEY }}

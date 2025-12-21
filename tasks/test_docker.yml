@@ -53,7 +53,9 @@
         - name: "Validate container '{{ container.name }}' state"
           ansible.builtin.assert:
             that:
-              - current_container_info.container.State.Status == container.state
+              - >-
+                (container.state == 'stopped' and current_container_info.container.State.Status in ['exited', 'stopped']) or
+                (container.state != 'stopped' and current_container_info.container.State.Status == container.state)
             fail_msg: >-
               Container '{{ container.name }}' state mismatch:
               Expected: {{ container.state }}

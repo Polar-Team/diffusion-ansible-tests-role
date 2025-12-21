@@ -1,0 +1,136 @@
+---
+# Setup for PostgreSQL tests
+- name: Install PostgreSQL
+  ansible.builtin.apt:
+    name:
+      - postgresql
+      - postgresql-contrib
+      - python3-psycopg2
+    state: present
+
+- name: Start PostgreSQL service
+  ansible.builtin.service:
+    name: postgresql
+    state: started
+    enabled: true
+
+- name: Configure PostgreSQL to allow local connections without password
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ item }}/main/pg_hba.conf
+    regexp: '^local\s+all\s+postgres\s+peer'
+    line: 'local   all             postgres                                trust'
+    state: present
+  loop:
+    - "14"
+    - "15"
+    - "16"
+  ignore_errors: true
+
+- name: Configure PostgreSQL to allow localhost connections without password
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ item }}/main/pg_hba.conf
+    regexp: '^host\s+all\s+all\s+127\.0\.0\.1/32'
+    line: 'host    all             all             127.0.0.1/32            trust'
+    state: present
+  loop:
+    - "14"
+    - "15"
+    - "16"
+  ignore_errors: true
+
+- name: Configure PostgreSQL to allow localhost IPv6 connections without password
+  ansible.builtin.lineinfile:
+    path: /etc/postgresql/{{ item }}/main/pg_hba.conf
+    regexp: '^host\s+all\s+all\s+::1/128'
+    line: 'host    all             all             ::1/128                 trust'
+    state: present
+  loop:
+    - "14"
+    - "15"
+    - "16"
+  ignore_errors: true
+
+- name: Restart PostgreSQL to apply configuration
+  ansible.builtin.service:
+    name: postgresql
+    state: restarted
+
+- name: Setup PostgreSQL test environment
+  become: true
+  become_user: postgres
+  block:
+    - name: Create test database
+      community.postgresql.postgresql_db:
+        name: testdb
+        state: present
+
+    - name: Create test roles
+      community.postgresql.postgresql_user:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - app_user
+        - readonly_user
+        - backup_user
+
+    - name: Create audit schema
+      community.postgresql.postgresql_query:
+        db: testdb
+        query: CREATE SCHEMA IF NOT EXISTS audit;
+
+    - name: Create test tables
+      community.postgresql.postgresql_query:
+        db: testdb
+        query: |
+          CREATE TABLE IF NOT EXISTS public.users (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(50) NOT NULL,
+            email VARCHAR(100),
+            role VARCHAR(20) DEFAULT 'user',
+            created_at TIMESTAMP DEFAULT NOW()
+          );
+          
+          CREATE TABLE IF NOT EXISTS public.orders (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id),
+            status VARCHAR(20) DEFAULT 'pending',
+            total DECIMAL(10,2),
+            created_at TIMESTAMP DEFAULT NOW()
+          );
+          
+          CREATE TABLE IF NOT EXISTS public.products (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) NOT NULL,
+            price DECIMAL(10,2) NOT NULL,
+            stock INTEGER DEFAULT 0
+          );
+          
+          CREATE TABLE IF NOT EXISTS audit.log_entries (
+            id SERIAL PRIMARY KEY,
+            action VARCHAR(50),
+            table_name VARCHAR(50),
+            timestamp TIMESTAMP DEFAULT NOW()
+          );
+
+    - name: Insert test data
+      community.postgresql.postgresql_query:
+        db: testdb
+        query: |
+          INSERT INTO public.users (username, email, role) VALUES 
+            ('admin', 'admin@example.com', 'admin'),
+            ('user1', 'user1@example.com', 'user'),
+            ('user2', 'user2@example.com', 'user');
+          
+          INSERT INTO public.orders (user_id, status, total) VALUES 
+            (1, 'pending', 99.99),
+            (2, 'completed', 149.99),
+            (1, 'pending', 49.99);
+          
+          INSERT INTO public.products (name, price, stock) VALUES 
+            ('Product A', 29.99, 100),
+            ('Product B', 49.99, 50),
+            ('Product C', 99.99, 25);
+          
+          INSERT INTO audit.log_entries (action, table_name) VALUES 
+            ('INSERT', 'users'),
+            ('UPDATE', 'orders');

@@ -1,0 +1,5 @@
+collections:
+    - community.docker
+    - community.postgresql
+    - community.general
+roles: []

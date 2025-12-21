@@ -1,0 +1,95 @@
+---
+# URI testing scenarios for diffusion_tests role
+- name: Setup URI test environment
+  ansible.builtin.include_tasks: setup.yml
+
+- name: Test Case 1 - Simple HTTP endpoint
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_uris:
+      - "http://127.0.0.1/health"
+    uri_validate_certs: false
+    uri_timeout: 10
+    verify_ports: []
+    verify_docker_containers: []
+    verify_output_in_cmd: []
+
+- name: Test Case 2 - Multiple HTTP endpoints
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_uris:
+      - "http://127.0.0.1/health"
+      - "http://127.0.0.1/status"
+      - "http://127.0.0.1/api"
+    uri_validate_certs: false
+    verify_ports: []
+    verify_docker_containers: []
+    verify_output_in_cmd: []
+
+- name: Test Case 3 - Endpoint with redirect
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_uris:
+      - "http://127.0.0.1/redirect"
+    uri_validate_certs: false
+    uri_follow_redirects: "safe"
+    uri_expected_status: [200, 301, 302]
+    verify_ports: []
+    verify_docker_containers: []
+    verify_output_in_cmd: []
+
+- name: Test Case 4 - Localhost resolution
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_uris:
+      - "http://localhost/health"
+    uri_validate_certs: false
+    verify_ports: []
+    verify_docker_containers: []
+    verify_output_in_cmd: []
+
+- name: Test Case 5 - Custom timeout
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_uris:
+      - "http://127.0.0.1/health"
+    uri_timeout: 30
+    uri_validate_certs: false
+    verify_ports: []
+    verify_docker_containers: []
+    verify_output_in_cmd: []
+
+- name: Test Case 6 - SNI with FQDN
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_uris:
+      - "http://test.example.com/health"
+    uri_test_ip: "127.0.0.1"
+    uri_validate_certs: false
+    verify_ports: []
+    verify_docker_containers: []
+    verify_output_in_cmd: []
+
+- name: Test Case 7 - Multiple FQDNs with SNI
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_uris:
+      - "http://api.example.com/health"
+      - "http://web.example.com/status"
+    uri_test_ip: "127.0.0.1"
+    uri_validate_certs: false
+    verify_ports: []
+    verify_docker_containers: []
+    verify_output_in_cmd: []
+
+- name: Test Case 8 - Custom status codes
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_uris:
+      - "http://127.0.0.1/redirect"
+    uri_expected_status: [301, 302]
+    uri_validate_certs: false
+    uri_follow_redirects: "none"
+    verify_ports: []
+    verify_docker_containers: []
+    verify_output_in_cmd: []

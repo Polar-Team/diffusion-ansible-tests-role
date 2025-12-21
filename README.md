@@ -1,6 +1,11 @@
 # Diffusion Tests Role
 
-A comprehensive Ansible testing role for validating container environments, network services, shell commands, and database configurations using Molecule framework.
+A comprehensive Ansible testing role for validating container environments, network services, shell commands, and database configurations using the [Diffusion framework](https://github.com/Polar-Team/diffusion).
+
+> 🚀 **Quick Start**: See [QUICKSTART.md](QUICKSTART.md) to get started in 5 minutes  
+> 📚 **Complete Guide**: See [SUMMARY.md](SUMMARY.md) for a complete overview  
+> 📖 **Documentation**: See [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) for all documentation  
+> 🔧 **Framework**: This role is designed to work with the [Diffusion testing framework](https://github.com/Polar-Team/diffusion)
 
 ## Description
 
@@ -160,6 +165,24 @@ postgres_expected_records:
 ## Dependencies
 
 None. This is a standalone testing role.
+
+### Development Dependencies
+
+For running the test suite:
+
+```yaml
+# Python packages (requirements.txt)
+ansible-core >= 2.15
+molecule >= 6.0.0
+molecule-docker >= 2.1.0
+docker >= 6.0.0
+psycopg2-binary >= 2.9.0
+
+# Ansible collections (requirements.yml)
+community.general >= 7.4.0
+community.docker >= 3.4.0
+community.postgresql >= 2.4.0
+```
 
 ## Example Molecule Verify Playbook
 
@@ -411,19 +434,99 @@ uri_validate_certs: true
 
 ## Testing the Role
 
+This role uses the [Diffusion framework](https://github.com/Polar-Team/diffusion) for testing.
+
+### Prerequisites
+
+1. **Install Diffusion CLI**:
+   ```bash
+   # Using Go install
+   go install github.com/Polar-Team/diffusion@latest
+   
+   # Or from source
+   git clone https://github.com/Polar-Team/diffusion.git
+   cd diffusion
+   make build
+   ```
+
+2. **Install dependencies**:
+   ```bash
+   make install
+   # Or manually:
+   pip install -r requirements.txt
+   ansible-galaxy collection install -r requirements.yml
+   ```
+
+### Running Tests with Diffusion
+
 ```bash
 # Run all tests
-molecule test
+diffusion molecule --test
 
-# Run only verify stage
-molecule verify
+# Run specific test stages
+diffusion molecule --converge    # Setup environment
+diffusion molecule --verify      # Run tests
+diffusion molecule --lint        # Run linting
+diffusion molecule --idempotence # Test idempotence
 
-# Test with specific scenario
-molecule test -s default
+# Run specific test categories using tags
+diffusion molecule --verify -- --tags ports
+diffusion molecule --verify -- --tags docker
+diffusion molecule --verify -- --tags cmd
+diffusion molecule --verify -- --tags postgres
+diffusion molecule --verify -- --tags uri
 
-# Destroy and recreate
-molecule destroy && molecule converge && molecule verify
+# Run multiple categories
+diffusion molecule --verify -- --tags "ports,docker"
 ```
+
+### Using Makefile
+
+```bash
+make help          # Show all available commands
+make install       # Install all dependencies
+make test          # Run all tests
+make lint          # Run linting
+make verify        # Run verification tests
+make clean         # Clean up test environments
+```
+
+### Test Structure
+
+Tests are organized in the `tests/` directory following Diffusion framework conventions:
+
+```
+tests/
+├── test.yml              # Main test orchestration
+├── ports/
+│   ├── setup.yml        # Port test setup
+│   └── test_ports.yml   # Port test cases (4 tests)
+├── docker/
+│   ├── setup.yml        # Docker test setup
+│   └── test_docker.yml  # Docker test cases (6 tests)
+├── cmd/
+│   └── test_cmd.yml     # Command test cases (9 tests)
+├── postgres/
+│   ├── setup.yml        # PostgreSQL setup
+│   └── test_postgres.yml # PostgreSQL test cases (7 tests)
+└── uri/
+    ├── setup.yml        # URI test setup
+    └── test_uri.yml     # URI test cases (8 tests)
+```
+
+### Test Categories
+
+All tests support tag-based execution:
+
+- **ports** - Network port state verification (4 test cases)
+- **docker** - Container validation (6 test cases)
+- **cmd** - Shell command output validation (9 test cases)
+- **postgres** - PostgreSQL database validation (7 test cases)
+- **uri** - HTTP/HTTPS endpoint testing (8 test cases)
+
+**Total**: 34 test cases with 100% feature coverage
+
+For detailed test documentation, see [tests/README.md](tests/README.md)
 
 ## License
 
@@ -442,6 +545,12 @@ Contributions are welcome! Please ensure:
 - Code follows existing patterns
 - Documentation is updated
 - Security best practices are maintained
+
+### Quick Links
+
+- [Quick Reference Guide](QUICK_REFERENCE.md) - Fast command reference
+- [Testing Guide](TESTING.md) - Complete testing documentation
+- [Test Summary](TEST_SUMMARY.md) - Detailed test case breakdown
 
 ## Changelog
 

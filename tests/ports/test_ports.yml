@@ -1,0 +1,96 @@
+---
+# Port testing scenarios for diffusion_tests role
+- name: Setup port test environment
+  ansible.builtin.include_tasks: setup.yml
+
+- name: Test Case 1 - Ports in started state
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_ports:
+      - port: 8080
+        host: "127.0.0.1"
+        timeout: 5
+        state: "started"
+        description: "Test service on 8080"
+      - port: 8081
+        host: "127.0.0.1"
+        timeout: 5
+        state: "started"
+        description: "Test service on 8081"
+      - port: 9090
+        host: "127.0.0.1"
+        timeout: 5
+        state: "started"
+        description: "Test service on 9090"
+
+- name: Test Case 2 - Ports in stopped state
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_ports:
+      - port: 9999
+        host: "127.0.0.1"
+        timeout: 3
+        state: "stopped"
+        description: "Unused port"
+      - port: 10000
+        host: "127.0.0.1"
+        timeout: 3
+        state: "stopped"
+        description: "Another unused port"
+
+- name: Test Case 3 - Port with custom timing
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_ports:
+      - port: 8080
+        host: "127.0.0.1"
+        timeout: 10
+        state: "started"
+        delay: 2
+        sleep: 1
+        description: "Port with custom timing"
+
+- name: Test Case 4 - Port on localhost
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_ports:
+      - port: 8080
+        host: "localhost"
+        timeout: 5
+        state: "started"
+        description: "Test localhost resolution"
+
+- name: Test Case 5 - EXPECTED FAILURE - Port listening but expecting stopped
+  block:
+    - name: Run test that should fail
+      ansible.builtin.include_tasks: ../../tasks/main.yml
+      vars:
+        verify_ports:
+          - port: 8080
+            host: "127.0.0.1"
+            timeout: 3
+            state: "stopped"
+            description: "This should fail - port 8080 is listening"
+
+    - name: If we get here, the test passed when it should have failed
+      ansible.builtin.fail:
+        msg: "Test Case 5 should have failed but it passed!"
+
+  rescue:
+    - name: Test Case 5 failed as expected
+      ansible.builtin.debug:
+        msg: "✓ Test Case 5 correctly failed as expected"
+
+- name: Cleanup - Kill netcat test processes
+  ansible.builtin.shell: |
+    if [ -f /tmp/nc_{{ item }}.pid ]; then
+      kill $(cat /tmp/nc_{{ item }}.pid) 2>/dev/null || true
+      rm -f /tmp/nc_{{ item }}.pid
+    fi
+    pkill -f "nc -l.*{{ item }}" || true
+  loop:
+    - 8080
+    - 8081
+    - 9090
+  changed_when: false
+  ignore_errors: true

@@ -1,0 +1,41 @@
+---
+# Setup for port tests
+- name: Install netcat for port testing
+  ansible.builtin.apt:
+    name: netcat-openbsd
+    state: present
+
+- name: Kill any existing netcat processes on test ports
+  ansible.builtin.shell: |
+    pkill -f "nc -l.*{{ item }}" || true
+  loop:
+    - 8080
+    - 8081
+    - 9090
+  ignore_errors: true
+  changed_when: false
+
+- name: Start persistent test services on specific ports
+  ansible.builtin.shell: |
+    nohup sh -c 'while true; do nc -l {{ item }} < /dev/null; done' > /dev/null 2>&1 &
+    echo $! > /tmp/nc_{{ item }}.pid
+  loop:
+    - 8080
+    - 8081
+    - 9090
+  changed_when: false
+
+- name: Wait for ports to be ready
+  ansible.builtin.pause:
+    seconds: 3
+
+- name: Verify ports are listening
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ item }}"
+    timeout: 5
+    state: started
+  loop:
+    - 8080
+    - 8081
+    - 9090

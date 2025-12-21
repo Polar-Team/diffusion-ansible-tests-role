@@ -1,0 +1,71 @@
+---
+# Setup for URI tests
+- name: Install web server and tools
+  ansible.builtin.apt:
+    name:
+      - nginx
+      - python3-pip
+    state: present
+
+- name: Start nginx
+  ansible.builtin.service:
+    name: nginx
+    state: started
+    enabled: true
+
+- name: Create test HTML pages
+  ansible.builtin.copy:
+    content: |
+      <!DOCTYPE html>
+      <html>
+      <head><title>Test Page</title></head>
+      <body><h1>Test {{ item.name }}</h1></body>
+      </html>
+    dest: "/var/www/html/{{ item.path }}"
+    mode: '0644'
+  loop:
+    - name: "Health Check"
+      path: "health.html"
+    - name: "Status"
+      path: "status.html"
+    - name: "API"
+      path: "api.html"
+
+- name: Configure nginx for test endpoints
+  ansible.builtin.copy:
+    content: |
+      server {
+          listen 80 default_server;
+          listen [::]:80 default_server;
+          server_name _;
+          root /var/www/html;
+          index index.html health.html;
+          
+          location /health {
+              alias /var/www/html/health.html;
+          }
+          
+          location /status {
+              alias /var/www/html/status.html;
+          }
+          
+          location /api {
+              alias /var/www/html/api.html;
+          }
+          
+          location /redirect {
+              return 301 /health;
+          }
+      }
+    dest: /etc/nginx/sites-available/default
+    mode: '0644'
+
+- name: Reload nginx
+  ansible.builtin.service:
+    name: nginx
+    state: reloaded
+
+- name: Wait for nginx to be ready
+  ansible.builtin.wait_for:
+    port: 80
+    delay: 2

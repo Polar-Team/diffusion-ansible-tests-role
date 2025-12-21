@@ -52,6 +52,7 @@
         login_password: "{{ postgres_password }}"
         port: "{{ postgres_port | default(5432) }}"
       register: pg_roles
+      when: postgres_expected_roles is defined and postgres_expected_roles | length > 0
 
     - name: Assert required roles exist
       ansible.builtin.assert:
@@ -63,84 +64,75 @@
       loop: "{{ postgres_expected_roles }}"
       loop_control:
         label: "Role: {{ item }}"
+      when: postgres_expected_roles is defined and postgres_expected_roles | length > 0
 
     - name: Check required tables exist
-      community.postgresql.postgresql_info:
-        db: "{{ postgres_db }}"
-        filter: tables
-        login_host: "{{ postgres_host }}"
-        login_user: "{{ postgres_user }}"
-        login_password: "{{ postgres_password }}"
-        port: "{{ postgres_port | default(5432) }}"
-      register: pg_tables
+      when: postgres_expected_tables is defined and postgres_expected_tables | length > 0
+      block:
+        - name: Query for existing tables
+          community.postgresql.postgresql_query:
+            db: "{{ postgres_db }}"
+            query: |
+              SELECT schemaname || '.' || tablename as full_name
+              FROM pg_tables
+              WHERE schemaname NOT IN ('pg_catalog', 'information_schema')
+            login_host: "{{ postgres_host }}"
+            login_user: "{{ postgres_user }}"
+            login_password: "{{ postgres_password }}"
+            port: "{{ postgres_port | default(5432) }}"
+          register: pg_tables_query
 
-    - name: Extract table names from result
-      ansible.builtin.set_fact:
-        available_tables: "{{ pg_tables.tables[postgres_db] | dict2items | map(attribute='key') | list }}"
+        - name: Extract table names from query result
+          ansible.builtin.set_fact:
+            available_tables: "{{ pg_tables_query.query_result | map(attribute='full_name') | list }}"
 
-    - name: Assert required tables exist
-      ansible.builtin.assert:
-        that:
-          - item in available_tables
-        fail_msg: "Table '{{ item }}' is missing from database '{{ postgres_db }}'"
-        success_msg: "Table '{{ item }}' exists"
-        quiet: true
-      loop: "{{ postgres_expected_tables }}"
-      loop_control:
-        label: "Table: {{ item }}"
+        - name: Assert required tables exist
+          ansible.builtin.assert:
+            that:
+              - item in available_tables or ('public.' + item) in available_tables
+            fail_msg: "Table '{{ item }}' is missing from database '{{ postgres_db }}'. Available tables: {{ available_tables | join(', ') }}"
+            success_msg: "Table '{{ item }}' exists"
+            quiet: true
+          loop: "{{ postgres_expected_tables }}"
+          loop_control:
+            label: "Table: {{ item }}"
 
     - name: Verify data records exist
       when: postgres_expected_records is defined and postgres_expected_records | length > 0
       block:
-        - name: Execute query and validate results
-          block:
-            - name: "Execute: {{ item.description | default(item.query | truncate(60)) }}"
-              community.postgresql.postgresql_query:
-                db: "{{ postgres_db }}"
-                query: "{{ item.query }}"
-                login_host: "{{ postgres_host }}"
-                login_user: "{{ postgres_user }}"
-                login_password: "{{ postgres_password }}"
-                port: "{{ postgres_port | default(5432) }}"
-              register: query_result
-              failed_when: false
-              loop: "{{ postgres_expected_records }}"
-              loop_control:
-                label: "{{ item.description | default(item.query | truncate(50)) }}"
+        - name: "Execute query: {{ record.description | default(record.query | truncate(60)) }}"
+          community.postgresql.postgresql_query:
+            db: "{{ postgres_db }}"
+            query: "{{ record.query }}"
+            login_host: "{{ postgres_host }}"
+            login_user: "{{ postgres_user }}"
+            login_password: "{{ postgres_password }}"
+            port: "{{ postgres_port | default(5432) }}"
+          register: query_result
+          loop: "{{ postgres_expected_records }}"
+          loop_control:
+            loop_var: record
+            label: "{{ record.description | default(record.query | truncate(50)) }}"
 
-            - name: "Validate query returned rows"
-              ansible.builtin.assert:
-                that:
-                  - query_result is succeeded
-                  - query_result.rowcount is defined
-                  - query_result.rowcount > 0
-                fail_msg: |
-                  [FAIL] Query validation failed
-                  {% if item.description is defined %}Description: {{ item.description }}{% endif %}
-                  Query: {{ item.query }}
-                  Expected: At least 1 row
-                  Actual: {{ query_result.rowcount | default(0) }} rows
-                  {% if query_result is failed %}Error: {{ query_result.msg | default('Query execution failed') }}{% endif %}
-                success_msg: |
-                  [PASS] Query returned {{ query_result.rowcount }} row(s)
-                  {% if item.description is defined %}Description: {{ item.description }}{% endif %}
-                quiet: true
-                loop: "{{ postgres_expected_records }}"
-                loop_control:
-                  label: "{{ item.description | default(item.query | truncate(50)) }}"
-
-          rescue:
-            - name: Log query validation failure
-              ansible.builtin.debug:
-                msg: |
-                  [ERROR] Query validation failed
-                  {% if item.description is defined %}Description: {{ item.description }}{% endif %}
-                  Query: {{ item.query }}
-                  Error: {{ ansible_failed_result.msg | default('Unknown error') }}
-              failed_when: true
-              loop: "{{ postgres_expected_records }}"
-              loop_control:
-                label: "{{ item.description | default(item.query | truncate(50)) }}"
+        - name: "Validate query returned rows"
+          ansible.builtin.assert:
+            that:
+              - item.rowcount is defined
+              - item.rowcount > 0
+            fail_msg: |
+              [FAIL] Query validation failed
+              {% if postgres_expected_records[idx].description is defined %}Description: {{ postgres_expected_records[idx].description }}{% endif %}
+              Query: {{ postgres_expected_records[idx].query }}
+              Expected: At least 1 row
+              Actual: {{ item.rowcount | default(0) }} rows
+            success_msg: |
+              [PASS] Query returned {{ item.rowcount }} row(s)
+              {% if postgres_expected_records[idx].description is defined %}Description: {{ postgres_expected_records[idx].description }}{% endif %}
+            quiet: true
+          loop: "{{ query_result.results }}"
+          loop_control:
+            index_var: idx
+            label: "Query {{ idx + 1 }}"
 
   rescue:
     - name: Log PostgreSQL verification failure

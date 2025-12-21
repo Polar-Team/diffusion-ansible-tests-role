@@ -1,0 +1,28 @@
+---
+dependency:
+  name: galaxy
+  options:
+    requirements-file: requirements.yml
+driver:
+  name: docker
+platforms:
+  - name: Ubuntu-22-04
+    image: geerlingguy/docker-ubuntu2204-ansible
+    command: /lib/systemd/systemd
+    cgroupns_mode: host
+    tmpfs:
+      - /tmp
+      - /run
+      - /run/lock
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - dockerroot:/var/lib/docker:rw
+    privileged: true
+    pre_build_image: true
+    env:
+      ANSIBLE_FORCE_COLOR: "1"
+      PY_COLORS: "1"
+provisioner:
+  name: ansible
+verifier:
+  name: ansible

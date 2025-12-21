@@ -1,0 +1,112 @@
+---
+# Command testing scenarios for diffusion_tests role
+- name: Test Case 1 - Simple substring match
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_output_in_cmd:
+      - cmd: "echo 'Hello World'"
+        output: "Hello"
+        exact_match: false
+    verify_ports: []
+    verify_docker_containers: []
+    verify_uris: []
+
+- name: Test Case 2 - Exact match
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_output_in_cmd:
+      - cmd: "echo 'test'"
+        output: "test"
+        exact_match: true
+    verify_ports: []
+    verify_docker_containers: []
+    verify_uris: []
+
+- name: Test Case 3 - Multiple commands
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_output_in_cmd:
+      - cmd: "echo 'first'"
+        output: "first"
+        exact_match: true
+      - cmd: "echo 'second'"
+        output: "second"
+        exact_match: true
+      - cmd: "echo 'third test'"
+        output: "third"
+        exact_match: false
+    verify_ports: []
+    verify_docker_containers: []
+    verify_uris: []
+
+- name: Test Case 4 - Shell command with pipes
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_output_in_cmd:
+      - cmd: "echo 'pipe test' | grep pipe"
+        output: "pipe"
+        use_shell: true
+    verify_ports: []
+    verify_docker_containers: []
+    verify_uris: []
+
+- name: Test Case 5 - Shell command with redirects
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_output_in_cmd:
+      - cmd: "echo 'redirect' > /tmp/test.txt && cat /tmp/test.txt"
+        output: "redirect"
+        use_shell: true
+    verify_ports: []
+    verify_docker_containers: []
+    verify_uris: []
+
+- name: Test Case 6 - System commands
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_output_in_cmd:
+      - cmd: "uname -s"
+        output: "Linux"
+        exact_match: false
+      - cmd: "whoami"
+        output: "root"
+        exact_match: false
+    verify_ports: []
+    verify_docker_containers: []
+    verify_uris: []
+
+- name: Test Case 7 - Multiline output
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_output_in_cmd:
+      - cmd: "echo -e 'line1\\nline2\\nline3'"
+        output: "line2"
+        use_shell: true
+    verify_ports: []
+    verify_docker_containers: []
+    verify_uris: []
+
+- name: Test Case 8 - Special characters
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_output_in_cmd:
+      - cmd: "echo 'test@example.com'"
+        output: "@"
+        exact_match: false
+    verify_ports: []
+    verify_docker_containers: []
+    verify_uris: []
+
+- name: Test Case 9 - Numbers
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_output_in_cmd:
+      - cmd: "echo '12345'"
+        output: "123"
+        exact_match: false
+      - cmd: "echo '12345'"
+        output: "12345"
+        exact_match: true
+    verify_ports: []
+    verify_docker_containers: []
+    verify_uris: []

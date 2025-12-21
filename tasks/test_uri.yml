@@ -8,8 +8,7 @@
   block:
     - name: Extract hostname from URI
       ansible.builtin.set_fact:
-        fqdn_name: "{{ uri | regex_replace('^https?://([^/:]+).*', '\\\\1') }}"
-        hosts_entry_added: false
+        fqdn_name: "{{ uri | regex_replace('^https?://([^/:]+).*', '\\1') }}"
 
     - name: Validate extracted hostname
       ansible.builtin.assert:
@@ -20,19 +19,48 @@
         fail_msg: "Failed to extract valid hostname from URI: {{ uri }}"
         success_msg: "Successfully extracted hostname: {{ fqdn_name }}"
 
+    - name: Check if hostname needs /etc/hosts entry
+      ansible.builtin.set_fact:
+        needs_hosts_entry: "{{ uri_test_ip is defined and fqdn_name not in ['localhost', '127.0.0.1'] and not (fqdn_name | regex_search('^\\d+\\.\\d+\\.\\d+\\.\\d+$')) }}"
+
+    - name: Debug hostname check
+      ansible.builtin.debug:
+        msg: 
+          - "URI: {{ uri }}"
+          - "FQDN: {{ fqdn_name }}"
+          - "uri_test_ip defined: {{ uri_test_ip is defined }}"
+          - "uri_test_ip value: {{ uri_test_ip | default('NOT SET') }}"
+          - "needs_hosts_entry: {{ needs_hosts_entry }}"
+
     - name: Add temporary host entry for SNI
-      ansible.builtin.lineinfile:
-        path: /etc/hosts
-        line: "{{ uri_test_ip | default('127.0.0.1') }} {{ fqdn_name }}"
-        state: present
-        backup: true
+      ansible.builtin.shell: |
+        set -e
+        if ! grep -qE "^{{ uri_test_ip | default('127.0.0.1') }}\s+{{ fqdn_name }}(\s|$)" /etc/hosts; then
+          echo "{{ uri_test_ip | default('127.0.0.1') }} {{ fqdn_name }}" >> /etc/hosts
+          echo "added"
+        else
+          echo "exists"
+        fi
       become: true
       register: hosts_modification
+      changed_when: hosts_modification.stdout == "added"
+      when: needs_hosts_entry | bool
 
-    - name: Mark hosts entry as added
-      ansible.builtin.set_fact:
-        hosts_entry_added: true
-      when: hosts_modification is changed
+    - name: Debug hosts file entry
+      ansible.builtin.shell: grep "{{ fqdn_name }}" /etc/hosts || echo "NOT FOUND"
+      register: hosts_check
+      changed_when: false
+      when: needs_hosts_entry | bool
+
+    - name: Display hosts file entry
+      ansible.builtin.debug:
+        msg: "Hosts entry for {{ fqdn_name }}: {{ hosts_check.stdout }}"
+      when: needs_hosts_entry | bool
+
+    - name: Wait for DNS/hosts to propagate
+      ansible.builtin.pause:
+        seconds: 1
+      when: needs_hosts_entry | bool and hosts_modification.stdout == "added"
 
     - name: Test URI with redirect following
       ansible.builtin.uri:
@@ -54,12 +82,4 @@
     - name: Log URI test failure
       ansible.builtin.debug:
         msg: "Failed to test URI {{ uri }}: {{ ansible_failed_result.msg | default('Unknown error') }}"
-
-  always:
-    - name: Remove temporary host entry
-      ansible.builtin.lineinfile:
-        path: /etc/hosts
-        regexp: "^{{ uri_test_ip | default('127\\.0\\.0\\.1') | regex_escape }}\\s+{{ fqdn_name | regex_escape }}$"
-        state: absent
-      become: true
-      when: hosts_entry_added | default(false)
+      failed_when: true

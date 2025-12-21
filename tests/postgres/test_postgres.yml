@@ -1,0 +1,104 @@
+---
+# PostgreSQL testing scenarios for diffusion_tests role
+- name: Setup PostgreSQL test environment
+  ansible.builtin.include_tasks: setup.yml
+
+- name: Test Case 1 - Database existence
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    postgres_db: testdb
+    postgres_host: localhost
+    postgres_user: postgres
+    postgres_password: ""
+    postgres_port: 5432
+    postgres_expected_roles: []
+    postgres_expected_tables: []
+    postgres_expected_records: []
+
+- name: Test Case 2 - Role existence
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    postgres_db: testdb
+    postgres_host: localhost
+    postgres_user: postgres
+    postgres_password: ""
+    postgres_expected_roles:
+      - app_user
+      - readonly_user
+      - backup_user
+    postgres_expected_tables: []
+    postgres_expected_records: []
+
+- name: Test Case 3 - Table existence
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    postgres_db: testdb
+    postgres_host: localhost
+    postgres_user: postgres
+    postgres_password: ""
+    postgres_expected_roles: []
+    postgres_expected_tables:
+      - public.users
+      - public.orders
+      - public.products
+    postgres_expected_records: []
+
+- name: Test Case 4 - Data records
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    postgres_db: testdb
+    postgres_host: localhost
+    postgres_user: postgres
+    postgres_password: ""
+    postgres_expected_roles: []
+    postgres_expected_tables: []
+    postgres_expected_records:
+      - query: "SELECT * FROM users WHERE role = 'admin'"
+        description: "Admin user exists"
+      - query: "SELECT * FROM orders WHERE status = 'pending'"
+        description: "Pending orders exist"
+      - query: "SELECT * FROM products WHERE price > 0"
+        description: "Products with valid prices"
+
+- name: Test Case 5 - Comprehensive validation
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    postgres_db: testdb
+    postgres_host: localhost
+    postgres_user: postgres
+    postgres_password: ""
+    postgres_expected_roles:
+      - app_user
+      - readonly_user
+    postgres_expected_tables:
+      - public.users
+      - public.orders
+    postgres_expected_records:
+      - query: "SELECT * FROM users WHERE role = 'admin'"
+        description: "Admin user exists"
+
+- name: Test Case 6 - Schema-qualified tables
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    postgres_db: testdb
+    postgres_host: localhost
+    postgres_user: postgres
+    postgres_password: ""
+    postgres_expected_tables:
+      - public.users
+      - audit.log_entries
+    postgres_expected_roles: []
+    postgres_expected_records: []
+
+- name: Test Case 7 - Complex queries
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    postgres_db: testdb
+    postgres_host: localhost
+    postgres_user: postgres
+    postgres_password: ""
+    postgres_expected_records:
+      - query: "SELECT * FROM orders WHERE created_at > NOW() - INTERVAL '1 day'"
+        description: "Recent orders exist"
+    postgres_expected_roles: []
+    postgres_expected_tables: []

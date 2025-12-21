@@ -1,3 +1,32 @@
-**/molecule/*
+# Diffusion/Molecule test artifacts
+**/molecule/
+**/scenarios/*/.cache/
+**/__pycache__/
+*.pyc
+
+# Ansible
 **/roles/*
+*.retry
 vars/secrets.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test outputs
+*.log
+.pytest_cache/

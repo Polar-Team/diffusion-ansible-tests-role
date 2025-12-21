@@ -1,0 +1,61 @@
+---
+# Docker testing scenarios for diffusion_tests role
+- name: Setup Docker test environment
+  ansible.builtin.include_tasks: setup.yml
+
+- name: Test Case 1 - Running containers with health checks
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_docker_containers:
+      - name: test-nginx-healthy
+        state: running
+        image: nginx:alpine
+        health: healthy
+      - name: test-redis-healthy
+        state: running
+        image: redis:alpine
+        health: healthy
+
+- name: Test Case 2 - Running container without health check
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_docker_containers:
+      - name: test-busybox-running
+        state: running
+        image: busybox:latest
+
+- name: Test Case 3 - Stopped container
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_docker_containers:
+      - name: test-nginx-stopped
+        state: stopped
+        image: nginx:alpine
+
+- name: Test Case 4 - Paused container
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_docker_containers:
+      - name: test-alpine-paused
+        state: paused
+        image: alpine:latest
+
+- name: Test Case 5 - State only (no image validation)
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_docker_containers:
+      - name: test-busybox-running
+        state: running
+
+- name: Test Case 6 - Multiple containers at once
+  ansible.builtin.include_tasks: ../../tasks/main.yml
+  vars:
+    verify_docker_containers:
+      - name: test-nginx-healthy
+        state: running
+        image: nginx:alpine
+        health: healthy
+      - name: test-busybox-running
+        state: running
+      - name: test-nginx-stopped
+        state: stopped
