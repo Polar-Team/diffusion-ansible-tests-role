@@ -72,13 +72,12 @@ jobs:
       - name: Create and converge test environment
         run: |
           cd $GITHUB_WORKSPACE
-          diffusion cache disable
-          diffusion molecule
+          diffusion molecule --ci
 
       - name: Run verification tests
         run: |
           cd $GITHUB_WORKSPACE
-          diffusion molecule --verify
+          diffusion molecule --ci --verify
 
   release:
     name: Create Release
