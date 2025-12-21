@@ -56,7 +56,7 @@ jobs:
           fi
           wget -O /usr/local/bin/diffusion "$DOWNLOAD_URL"
           chmod +x /usr/local/bin/diffusion
-          diffusion --version
+          diffusion version
 
       - name: Create and converge test environment
         run: |
