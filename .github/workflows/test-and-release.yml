@@ -23,24 +23,35 @@ jobs:
     
     container:
       image: ubuntu:22.04
-      options: --privileged -v /var/run/docker.sock:/var/run/docker.sock
+      options: --privileged -v /var/run/docker.sock:/var/run/docker.sock --user 1000:1000
     
     steps:
+      - name: Setup user environment
+        run: |
+          # Create user with UID 1000 if it doesn't exist
+          if ! id -u 1000 > /dev/null 2>&1; then
+            sudo useradd -u 1000 -m -s /bin/bash runner || true
+          fi
+          # Ensure proper permissions
+          sudo chown -R 1000:1000 $HOME || true
+
       - name: Install system dependencies
         run: |
-          apt-get update
-          apt-get install -y git curl wget python3 python3-pip ca-certificates jq
+          sudo apt-get update
+          sudo apt-get install -y git curl wget python3 python3-pip ca-certificates jq
 
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Install Docker CLI
         run: |
-          apt-get install -y apt-transport-https gnupg lsb-release
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-          apt-get update
-          apt-get install -y docker-ce-cli
+          sudo apt-get install -y apt-transport-https gnupg lsb-release
+          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y docker-ce-cli
+          # Add user to docker group
+          sudo usermod -aG docker $(whoami) || true
 
       - name: Install Diffusion
         run: |
@@ -54,16 +65,20 @@ jobs:
             echo "Unsupported architecture: $ARCH"
             exit 1
           fi
-          wget -O /usr/local/bin/diffusion "$DOWNLOAD_URL"
-          chmod +x /usr/local/bin/diffusion
+          wget -O /tmp/diffusion "$DOWNLOAD_URL"
+          sudo mv /tmp/diffusion /usr/local/bin/diffusion
+          sudo chmod +x /usr/local/bin/diffusion
           diffusion version
 
       - name: Create and converge test environment
         run: |
+          cd $GITHUB_WORKSPACE
+          diffusion cache disable
           diffusion molecule
 
       - name: Run verification tests
         run: |
+          cd $GITHUB_WORKSPACE
           diffusion molecule --verify
 
   release:
