@@ -1,6 +1,6 @@
 ---
 - name: Test required ports
-  include_tasks: test_ports.yml
+  ansible.builtin.include_tasks: test_ports.yml
   loop: "{{ verify_ports }}"
   loop_control:
     label: "Port {{ tport.port }} on {{ tport.host | default('127.0.0.1') }}"
@@ -8,17 +8,17 @@
 
 - name: Test rootless Docker
   when: verify_docker_rootless and verify_docker_containers | length > 0
-  include_tasks: test_docker_rootless.yml
+  ansible.builtin.include_tasks: test_docker_rootless.yml
 
 - name: Test Docker containers
-  include_tasks: test_docker.yml
+  ansible.builtin.include_tasks: test_docker.yml
   loop: "{{ verify_docker_containers }}"
   loop_control:
     label: "{{ container.name }}"
     loop_var: "container"
 
 - name: Test shell commands
-  include_tasks: test_cmd.yml
+  ansible.builtin.include_tasks: test_cmd.yml
   loop: "{{ verify_output_in_cmd }}"
   loop_control:
     label: "Command: {{ command.cmd | truncate(50) }}"
@@ -30,10 +30,10 @@
     postgres_expected_roles | length > 0 or
     postgres_expected_tables | length > 0 or
     postgres_expected_records | length > 0
-  include_tasks: test_postgres.yml
+  ansible.builtin.include_tasks: test_postgres.yml
 
 - name: Test URI responses
-  include_tasks: test_uri.yml
+  ansible.builtin.include_tasks: test_uri.yml
   loop: "{{ verify_uris }}"
   loop_control:
     label: "{{ uri }}"

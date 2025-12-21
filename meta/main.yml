@@ -1,23 +1,24 @@
+---
 galaxy_info:
-    role_name: diffusion_tests
-    company: Polar Team
-    namespace: polar
-    author: Daniel Dalavurak
-    description: Role for testing molecule for diffusion framework
-    license: MIT
-    min_ansible_version: "2.10"
-    platforms:
-        - name: Ubuntu
-          versions:
-            - jammy
-            - noble
-        - name: Debian
-          versions:
-            - bookworm
-    galaxy_tags:
-        - diffusion
-        - tests
+  role_name: diffusion_tests
+  company: Polar Team
+  namespace: polar
+  author: Daniel Dalavurak
+  description: Role for testing molecule for diffusion framework
+  license: MIT
+  min_ansible_version: "2.10"
+  platforms:
+    - name: Ubuntu
+      versions:
+        - jammy
+        - noble
+    - name: Debian
+      versions:
+        - bookworm
+  galaxy_tags:
+    - diffusion
+    - tests
 collections:
-    - community.docker
-    - community.postgresql
-    - community.general
+  - community.docker
+  - community.postgresql
+  - community.general

@@ -1,5 +1,6 @@
 ---
-# This task verifies PostgreSQL database existence, roles, tables, and data records.
+# This task verifies PostgreSQL database existence, roles, tables,
+# and data records.
 #
 # Required connection variables:
 #   postgres_db: "mydb"           # Database name to check
@@ -13,13 +14,17 @@
 #     - "app_user"
 #     - "readonly_user"
 #
-#   postgres_expected_tables:     # List of table names that must exist (can be schema-qualified)
+#   postgres_expected_tables:     # List of table names that must
+#                                 # exist (can be
+#                                 # schema-qualified)
 #     - "users"
 #     - "public.orders"
 #
-#   postgres_expected_records:    # List of queries that must return at least one row
+#   postgres_expected_records:    # List of queries that must
+#                                 # return at least one row
 #     - query: "SELECT * FROM users WHERE role = 'admin'"
-#       description: "Admin user exists"  # optional, for clearer error messages
+#       description: "Admin user exists"  # optional, for clearer
+#                                         # error messages
 #     - query: "SELECT * FROM orders WHERE status = 'pending'"
 #       description: "Pending orders exist"
 
@@ -41,7 +46,9 @@
       ansible.builtin.assert:
         that:
           - db_check is succeeded
-        fail_msg: "Database '{{ postgres_db }}' does not exist or is not accessible"
+        fail_msg: >-
+          Database '{{ postgres_db }}' does not exist or is not
+          accessible
         success_msg: "Database '{{ postgres_db }}' exists"
 
     - name: Check Postgres roles exist
@@ -52,7 +59,9 @@
         login_password: "{{ postgres_password }}"
         port: "{{ postgres_port | default(5432) }}"
       register: pg_roles
-      when: postgres_expected_roles is defined and postgres_expected_roles | length > 0
+      when: >-
+        postgres_expected_roles is defined and
+        postgres_expected_roles | length > 0
 
     - name: Assert required roles exist
       ansible.builtin.assert:
@@ -64,10 +73,14 @@
       loop: "{{ postgres_expected_roles }}"
       loop_control:
         label: "Role: {{ item }}"
-      when: postgres_expected_roles is defined and postgres_expected_roles | length > 0
+      when: >-
+        postgres_expected_roles is defined and
+        postgres_expected_roles | length > 0
 
     - name: Check required tables exist
-      when: postgres_expected_tables is defined and postgres_expected_tables | length > 0
+      when: >-
+        postgres_expected_tables is defined and
+        postgres_expected_tables | length > 0
       block:
         - name: Query for existing tables
           community.postgresql.postgresql_query:
@@ -84,13 +97,20 @@
 
         - name: Extract table names from query result
           ansible.builtin.set_fact:
-            available_tables: "{{ pg_tables_query.query_result | map(attribute='full_name') | list }}"
+            available_tables: >-
+              {{ pg_tables_query.query_result |
+              map(attribute='full_name') | list }}
 
         - name: Assert required tables exist
           ansible.builtin.assert:
             that:
-              - item in available_tables or ('public.' + item) in available_tables
-            fail_msg: "Table '{{ item }}' is missing from database '{{ postgres_db }}'. Available tables: {{ available_tables | join(', ') }}"
+              - >-
+                item in available_tables or
+                ('public.' + item) in available_tables
+            fail_msg: >-
+              Table '{{ item }}' is missing from database
+              '{{ postgres_db }}'.
+              Available tables: {{ available_tables | join(', ') }}
             success_msg: "Table '{{ item }}' exists"
             quiet: true
           loop: "{{ postgres_expected_tables }}"
@@ -98,9 +118,14 @@
             label: "Table: {{ item }}"
 
     - name: Verify data records exist
-      when: postgres_expected_records is defined and postgres_expected_records | length > 0
+      when: >-
+        postgres_expected_records is defined and
+        postgres_expected_records | length > 0
       block:
-        - name: "Execute query: {{ record.description | default(record.query | truncate(60)) }}"
+        - name: >-
+            Execute query:
+            {{ record.description |
+            default(record.query | truncate(60)) }}
           community.postgresql.postgresql_query:
             db: "{{ postgres_db }}"
             query: "{{ record.query }}"
@@ -112,7 +137,9 @@
           loop: "{{ postgres_expected_records }}"
           loop_control:
             loop_var: record
-            label: "{{ record.description | default(record.query | truncate(50)) }}"
+            label: >-
+              {{ record.description |
+              default(record.query | truncate(50)) }}
 
         - name: "Validate query returned rows"
           ansible.builtin.assert:
@@ -121,13 +148,19 @@
               - item.rowcount > 0
             fail_msg: |
               [FAIL] Query validation failed
-              {% if postgres_expected_records[idx].description is defined %}Description: {{ postgres_expected_records[idx].description }}{% endif %}
+              {% if postgres_expected_records[idx].description
+              is defined %}Description:
+              {{ postgres_expected_records[idx].description }}
+              {% endif %}
               Query: {{ postgres_expected_records[idx].query }}
               Expected: At least 1 row
               Actual: {{ item.rowcount | default(0) }} rows
             success_msg: |
               [PASS] Query returned {{ item.rowcount }} row(s)
-              {% if postgres_expected_records[idx].description is defined %}Description: {{ postgres_expected_records[idx].description }}{% endif %}
+              {% if postgres_expected_records[idx].description
+              is defined %}Description:
+              {{ postgres_expected_records[idx].description }}
+              {% endif %}
             quiet: true
           loop: "{{ query_result.results }}"
           loop_control:
@@ -141,5 +174,6 @@
           [ERROR] PostgreSQL verification failed
           Database: {{ postgres_db | default('undefined') }}
           Host: {{ postgres_host | default('undefined') }}
-          Error: {{ ansible_failed_result.msg | default('Connection or permission issue') }}
+          Error: {{ ansible_failed_result.msg |
+          default('Connection or permission issue') }}
       failed_when: true

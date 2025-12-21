@@ -1,6 +1,8 @@
 ---
-# This task executes commands and validates that expected output patterns appear in stdout.
-# verify_output_in_cmd should be a list of dicts with 'cmd' and 'output' keys:
+# This task executes commands and validates that expected output
+# patterns appear in stdout.
+# verify_output_in_cmd should be a list of dicts with 'cmd' and
+# 'output' keys:
 # verify_output_in_cmd:
 #   - cmd: "echo 'Hello World'"
 #     output: "Hello"
@@ -25,7 +27,7 @@
       changed_when: false
       when: not use_shell_module
 
-    - name: "Execute shell command: {{ command.cmd }}"
+    - name: Execute shell command  # noqa command-instead-of-shell
       ansible.builtin.shell: "{{ command.cmd }}"
       register: shell_execution_result
       failed_when: false
@@ -34,20 +36,28 @@
 
     - name: Combine results
       ansible.builtin.set_fact:
-        execution_result: "{{ shell_execution_result if use_shell_module else command_execution_result }}"
+        execution_result: >-
+          {{ shell_execution_result if use_shell_module
+          else command_execution_result }}
 
     - name: "Validate output contains expected pattern for: {{ command.cmd }}"
       ansible.builtin.assert:
         that:
           - execution_result.rc == 0
-          - (not use_exact_match and expected_output_pattern in execution_result.stdout) or (use_exact_match and execution_result.stdout == expected_output_pattern)
+          - >-
+            (not use_exact_match and
+            expected_output_pattern in execution_result.stdout) or
+            (use_exact_match and
+            execution_result.stdout == expected_output_pattern)
         fail_msg: >-
           Command '{{ command.cmd }}' output validation failed:
           Expected pattern: '{{ expected_output_pattern }}'
           Match type: {{ 'exact' if use_exact_match else 'substring' }}
           Actual stdout: '{{ execution_result.stdout }}'
           Return code: {{ execution_result.rc }}
-        success_msg: "Command '{{ command.cmd }}' produced expected output pattern: '{{ expected_output_pattern }}'"
+        success_msg: >-
+          Command '{{ command.cmd }}' produced expected output
+          pattern: '{{ expected_output_pattern }}'
 
   rescue:
     - name: Log command verification failure

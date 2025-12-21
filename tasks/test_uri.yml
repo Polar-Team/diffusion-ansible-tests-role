@@ -1,10 +1,14 @@
 ---
-# This task tests URIs by temporarily adding hosts file entries for SNI (Server Name Indication) testing.
-# SNI allows multiple SSL certificates on the same IP, requiring hostname resolution to test properly.
-# We add temporary entries to /etc/hosts to redirect FQDN to localhost for local testing.
+# This task tests URIs by temporarily adding hosts file entries for
+# SNI (Server Name Indication) testing.
+# SNI allows multiple SSL certificates on the same IP, requiring
+# hostname resolution to test properly.
+# We add temporary entries to /etc/hosts to redirect FQDN to
+# localhost for local testing.
 
 - name: Run URI tests with temporary SNI hosts
-  when: verify_uris is defined and verify_uris | length > 0
+  when: >-
+    verify_uris is defined and verify_uris | length > 0
   block:
     - name: Extract hostname from URI
       ansible.builtin.set_fact:
@@ -21,65 +25,113 @@
 
     - name: Check if hostname needs /etc/hosts entry
       ansible.builtin.set_fact:
-        needs_hosts_entry: "{{ uri_test_ip is defined and fqdn_name not in ['localhost', '127.0.0.1'] and not (fqdn_name | regex_search('^\\d+\\.\\d+\\.\\d+\\.\\d+$')) }}"
+        needs_hosts_entry: >-
+          {{ fqdn_name not in ['localhost', '127.0.0.1'] and
+          not (fqdn_name |
+          regex_search('^\\d+\\.\\d+\\.\\d+\\.\\d+$')) }}
 
     - name: Debug hostname check
       ansible.builtin.debug:
-        msg: 
+        msg:
           - "URI: {{ uri }}"
           - "FQDN: {{ fqdn_name }}"
           - "uri_test_ip defined: {{ uri_test_ip is defined }}"
-          - "uri_test_ip value: {{ uri_test_ip | default('NOT SET') }}"
+          - >-
+            uri_test_ip value:
+            {{ uri_test_ip | default('NOT SET') }}
           - "needs_hosts_entry: {{ needs_hosts_entry }}"
 
     - name: Add temporary host entry for SNI
-      ansible.builtin.shell: |
-        set -e
-        if ! grep -qE "^{{ uri_test_ip | default('127.0.0.1') }}\s+{{ fqdn_name }}(\s|$)" /etc/hosts; then
-          echo "{{ uri_test_ip | default('127.0.0.1') }} {{ fqdn_name }}" >> /etc/hosts
-          echo "added"
-        else
-          echo "exists"
-        fi
+      ansible.builtin.shell:
+        cmd: |
+          set -eo pipefail
+          IP="{{ uri_test_ip | default('127.0.0.1') }}"
+          PATTERN="^${IP}\s+{{ fqdn_name }}(\s|$)"
+          if ! grep -qE "$PATTERN" /etc/hosts; then
+            echo "${IP} {{ fqdn_name }}" >> /etc/hosts
+            echo "added"
+          else
+            echo "exists"
+          fi
+        executable: /bin/bash
       become: true
       register: hosts_modification
       changed_when: hosts_modification.stdout == "added"
       when: needs_hosts_entry | bool
 
-    - name: Debug hosts file entry
-      ansible.builtin.shell: grep "{{ fqdn_name }}" /etc/hosts || echo "NOT FOUND"
-      register: hosts_check
+    - name: Verify hosts entry was added
+      ansible.builtin.shell:
+        cmd: >-
+          set -eo pipefail &&
+          cat /etc/hosts | grep "{{ fqdn_name }}" || echo "MISSING"
+        executable: /bin/bash
+      become: true
+      register: verify_hosts
       changed_when: false
       when: needs_hosts_entry | bool
 
+    - name: Show verification result
+      ansible.builtin.debug:
+        msg: "Hosts file check: {{ verify_hosts.stdout_lines }}"
+      when: needs_hosts_entry | bool
+
+    - name: Test hostname resolution
+      ansible.builtin.command: getent hosts {{ fqdn_name }}
+      register: getent_result
+      changed_when: false
+      failed_when: false
+      when: needs_hosts_entry | bool
+
+    - name: Show DNS resolution result
+      ansible.builtin.debug:
+        msg: "DNS resolution: {{ getent_result.stdout }}"
+      when: needs_hosts_entry | bool
+
+    - name: Debug hosts file entry
+      ansible.builtin.shell: >-
+        grep "{{ fqdn_name }}" /etc/hosts || echo "NOT FOUND"
+      register: hosts_check
+      changed_when: false
+      become: true
+
     - name: Display hosts file entry
       ansible.builtin.debug:
-        msg: "Hosts entry for {{ fqdn_name }}: {{ hosts_check.stdout }}"
-      when: needs_hosts_entry | bool
+        msg: >-
+          Hosts entry for {{ fqdn_name }}:
+          {{ hosts_check.stdout }}
 
     - name: Wait for DNS/hosts to propagate
       ansible.builtin.pause:
         seconds: 1
-      when: needs_hosts_entry | bool and hosts_modification.stdout == "added"
+      when: >-
+        needs_hosts_entry | bool and
+        hosts_modification.stdout == "added"
 
     - name: Test URI with redirect following
       ansible.builtin.uri:
         url: "{{ uri }}"
-        follow_redirects: "{{ uri_follow_redirects | default('safe') }}"
+        follow_redirects: >-
+          {{ uri_follow_redirects | default('safe') }}
         validate_certs: "{{ uri_validate_certs | default(false) }}"
         timeout: "{{ uri_timeout | default(10) }}"
-        status_code: "{{ uri_expected_status | default([200, 301, 302]) }}"
+        status_code: >-
+          {{ uri_expected_status | default([200, 301, 302]) }}
       register: uri_results
-      # Note: validate_certs defaults to false for testing environments
-      # Set uri_validate_certs=true in production or when proper certs are available
+      # Note: validate_certs defaults to false for testing
+      # environments
+      # Set uri_validate_certs=true in production or when proper
+      # certs are available
 
     - name: Display URI test results
       ansible.builtin.debug:
-        msg: "URI {{ uri }} returned status {{ uri_results.status }}"
+        msg: >-
+          URI {{ uri }} returned status {{ uri_results.status }}
         verbosity: 1
 
   rescue:
     - name: Log URI test failure
       ansible.builtin.debug:
-        msg: "Failed to test URI {{ uri }}: {{ ansible_failed_result.msg | default('Unknown error') }}"
+        msg: >-
+          Failed to test URI {{ uri }}:
+          {{ ansible_failed_result.msg | default('Unknown error') }}
       failed_when: true
