@@ -31,12 +31,12 @@ jobs:
       - name: Create and converge test environment
         run: |
           cd /opt/molecule
-          diffusion molecule --ci
+          molecule
 
       - name: Run verification tests
         run: |
           cd /opt/molecule
-          diffusion molecule --ci --verify
+          molecule verify
 
   release:
     name: Create Release
@@ -129,10 +129,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish to Ansible Galaxy
-        if: success()
-        run: |
-          echo "To publish to Ansible Galaxy, configure GALAXY_API_KEY secret"
-          echo "Then run: ansible-galaxy role import --api-key \$GALAXY_API_KEY polar diffusion_tests"
-        env:
-          GALAXY_API_KEY: ${{ secrets.GALAXY_API_KEY }}
+      # - name: Publish to Ansible Galaxy
+      #   if: success()
+      #   run: |
+      #     echo "To publish to Ansible Galaxy, configure GALAXY_API_KEY secret"
+      #     echo "Then run: ansible-galaxy role import --api-key \$GALAXY_API_KEY polar diffusion_tests"
+      #   env:
+      #     GALAXY_API_KEY: ${{ secrets.GALAXY_API_KEY }}
