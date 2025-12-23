@@ -554,6 +554,37 @@ Contributions are welcome! Please ensure:
 
 ## Changelog
 
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
+
+### Latest Release: v1.2.0 (2024-12-23)
+- Updated CI/CD workflow to tag-based releases
+- Manual control over release timing and versioning
+- Automated testing on tag push
+- Automatic GitHub release creation after successful tests
+
+### Automated Releases
+
+This project uses automated releases triggered by git tags:
+
+1. **Create and push a tag**:
+   ```bash
+   git tag -a v1.2.0 -m "Release v1.2.0"
+   git push origin v1.2.0
+   ```
+
+2. **Automated workflow**:
+   - Runs all tests with Diffusion framework
+   - Creates GitHub release if tests pass
+   - Generates changelog from commits
+
+3. **Installation**:
+   ```yaml
+   # requirements.yml
+   roles:
+     - name: polar.diffusion_tests
+       version: v1.2.0
+   ```
+
 ### Version 1.0.0
 - Initial release
 - Docker container validation
