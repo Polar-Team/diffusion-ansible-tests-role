@@ -16,50 +16,17 @@ jobs:
     name: Run Diffusion Tests
     runs-on: ubuntu-latest
 
-    services:
-      docker:
-        image: docker:24-dind
-        options: --privileged
-
-    container:
-      image: ubuntu:22.04
-      options: --privileged -v /var/run/docker.sock:/var/run/docker.sock
-
     steps:
-      - name: Install system dependencies
-        run: |
-          apt-get update
-          apt-get install -y git curl wget python3 python3-pip ca-certificates jq sudo
-
-      # - name: Setup user environment
-      #   run: |
-      #     # Create user with UID 1000
-      #     useradd -u 1000 -m -s /bin/bash runner || true
-      #     # Add to docker group
-      #     groupadd docker || true
-      #     usermod -aG docker runner || true
-      #     # Set permissions
-      #     chown -R runner:runner /github/workspace || true
-      #     chown -R runner:runner /github/home || true
-      #
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Install Docker CLI
-        run: |
-          apt-get install -y apt-transport-https gnupg lsb-release
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-          apt-get update
-          apt-get install -y docker-ce-cli
 
       - name: Install Diffusion
         run: |
           LATEST_RELEASE=$(curl -s https://api.github.com/repos/Polar-Team/diffusion/releases/latest | jq -r .tag_name)
-          ARCH=$(dpkg --print-architecture)
-          if [ "$ARCH" = "amd64" ]; then
+          ARCH=$(uname -m)
+          if [ "$ARCH" = "x86_64" ]; then
             DOWNLOAD_URL="https://github.com/Polar-Team/diffusion/releases/download/${LATEST_RELEASE}/diffusion-linux-amd64"
-          elif [ "$ARCH" = "arm64" ]; then
+          elif [ "$ARCH" = "aarch64" ]; then
             DOWNLOAD_URL="https://github.com/Polar-Team/diffusion/releases/download/${LATEST_RELEASE}/diffusion-linux-arm64"
           else
             echo "Unsupported architecture: $ARCH"
@@ -69,14 +36,10 @@ jobs:
           chmod +x /usr/local/bin/diffusion
           diffusion version
 
-      - name: Create and converge test environment
+      - name: Run Molecule tests
         run: |
-          cd $GITHUB_WORKSPACE
-          diffusion molecule --ci
-
-      - name: Run verification tests
-        run: |
-          cd $GITHUB_WORKSPACE
+          diffusion molecule --ci && \
+          diffusion molecule --lint && \
           diffusion molecule --ci --verify
 
   release:
@@ -146,11 +109,8 @@ jobs:
 
           ## Installation
 
-          \`\`\`bash
-          ansible-galaxy role install polar.diffusion_tests
-          \`\`\`
 
-          Or add to \`requirements.yml\`:
+          Add to \`requirements.yml\`:
 
           \`\`\`yaml
           roles:
@@ -170,10 +130,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish to Ansible Galaxy
-        if: success()
-        run: |
-          echo "To publish to Ansible Galaxy, configure GALAXY_API_KEY secret"
-          echo "Then run: ansible-galaxy role import --api-key \$GALAXY_API_KEY polar diffusion_tests"
-        env:
-          GALAXY_API_KEY: ${{ secrets.GALAXY_API_KEY }}
+      # - name: Publish to Ansible Galaxy
+      #   if: success()
+      #   run: |
+      #     echo "To publish to Ansible Galaxy, configure GALAXY_API_KEY secret"
+      #     echo "Then run: ansible-galaxy role import --api-key \$GALAXY_API_KEY polar diffusion_tests"
+      #   env:
+      #     GALAXY_API_KEY: ${{ secrets.GALAXY_API_KEY }}
