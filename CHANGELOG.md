@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2024-12-23
+
+### Changed
+- **CI/CD Workflow**: Updated release workflow to trigger on tag pushes
+  - Release job now triggers only on tag pushes (refs/tags/v*)
+  - Removed automatic tag creation and version increment logic
+  - Manual control over release timing and versioning
+  - Simplified workflow: push tag → run tests → create release
+  - Generate changelog between previous tag and current tag
+
 ### Added - Diffusion Framework Integration (2024-12-21)
 
 #### Framework Migration
