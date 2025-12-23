@@ -46,7 +46,7 @@ jobs:
     name: Create Release
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: startsWith(github.ref, 'refs/tags/v')
 
     steps:
       - name: Checkout code
@@ -54,52 +54,28 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get latest tag
+      - name: Get tag name
         id: get_tag
         run: |
-          # Get the latest tag, or use v0.0.0 if no tags exist
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
-          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
-
-          # Parse version numbers
-          VERSION=${LATEST_TAG#v}
-          MAJOR=$(echo $VERSION | cut -d. -f1)
-          MINOR=$(echo $VERSION | cut -d. -f2)
-          PATCH=$(echo $VERSION | cut -d. -f3)
-
-          # Increment patch version
-          NEW_PATCH=$((PATCH + 1))
-          NEW_VERSION="v${MAJOR}.${MINOR}.${NEW_PATCH}"
-
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-          echo "Latest tag: $LATEST_TAG"
-          echo "New version: $NEW_VERSION"
-
-      - name: Create and push tag
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          NEW_VERSION="${{ steps.get_tag.outputs.new_version }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$NEW_VERSION" -m "Release $NEW_VERSION"
-          git push origin "$NEW_VERSION"
+          # Extract tag name from ref
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "Tag: $TAG_NAME"
 
       - name: Generate changelog
         id: changelog
         run: |
-          LATEST_TAG="${{ steps.get_tag.outputs.latest_tag }}"
-          NEW_VERSION="${{ steps.get_tag.outputs.new_version }}"
-
-          # Generate changelog from commits since last tag
-          if [ "$LATEST_TAG" != "v0.0.0" ]; then
-            CHANGELOG=$(git log ${LATEST_TAG}..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          TAG_NAME="${{ steps.get_tag.outputs.tag_name }}"
+          
+          # Get previous tag
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 ${TAG_NAME}^ 2>/dev/null || echo "")
+          
+          # Generate changelog from commits since previous tag
+          if [ -n "$PREVIOUS_TAG" ]; then
+            CHANGELOG=$(git log ${PREVIOUS_TAG}..${TAG_NAME} --pretty=format:"- %s (%h)" --no-merges)
           else
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+            CHANGELOG=$(git log ${TAG_NAME} --pretty=format:"- %s (%h)" --no-merges)
           fi
-
-          # Save to file for multiline handling
-          echo "$CHANGELOG" > /tmp/changelog.txt
 
           # Create release body
           cat > /tmp/release_body.md <<EOF
@@ -109,21 +85,20 @@ jobs:
 
           ## Installation
 
-
           Add to \`requirements.yml\`:
 
           \`\`\`yaml
           roles:
             - name: polar.diffusion_tests
-              version: $NEW_VERSION
+              version: $TAG_NAME
           \`\`\`
           EOF
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.get_tag.outputs.new_version }}
-          name: Release ${{ steps.get_tag.outputs.new_version }}
+          tag_name: ${{ steps.get_tag.outputs.tag_name }}
+          name: Release ${{ steps.get_tag.outputs.tag_name }}
           body_path: /tmp/release_body.md
           draft: false
           prerelease: false
