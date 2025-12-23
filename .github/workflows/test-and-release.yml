@@ -39,7 +39,7 @@ jobs:
       - name: Run Molecule tests
         run: |
           diffusion molecule --ci && \
-          diffusion molecule --lint && \
+          diffusion molecule --ci --lint && \
           diffusion molecule --ci --verify
 
   release:
