@@ -196,7 +196,7 @@ community.postgresql >= 2.4.0
   tasks:
     - name: Test Docker containers
       ansible.builtin.include_role:
-        name: diffusion_tests
+        name: tests/diffusion_tests
       vars:
         verify_docker_containers:
           - name: "test-nginx"
@@ -218,7 +218,7 @@ community.postgresql >= 2.4.0
     # Test ports are accessible
     - name: Verify service ports
       ansible.builtin.include_role:
-        name: diffusion_tests
+        name: tests/diffusion_tests
       vars:
         verify_ports:
           - port: 80
@@ -233,7 +233,7 @@ community.postgresql >= 2.4.0
     # Test Docker containers
     - name: Verify containers
       ansible.builtin.include_role:
-        name: diffusion_tests
+        name: tests/diffusion_tests
       vars:
         verify_docker_containers:
           - name: "{{ system_name }}-web"
@@ -247,7 +247,7 @@ community.postgresql >= 2.4.0
     # Test shell commands
     - name: Verify system commands
       ansible.builtin.include_role:
-        name: diffusion_tests
+        name: tests/diffusion_tests
       vars:
         verify_output_in_cmd:
           - cmd: "systemctl is-active nginx"
@@ -259,7 +259,7 @@ community.postgresql >= 2.4.0
     # Test HTTP endpoints
     - name: Verify API endpoints
       ansible.builtin.include_role:
-        name: diffusion_tests
+        name: tests/diffusion_tests
       vars:
         verify_uris:
           - "http://localhost/health"
@@ -269,7 +269,7 @@ community.postgresql >= 2.4.0
     # Test PostgreSQL database
     - name: Verify database
       ansible.builtin.include_role:
-        name: diffusion_tests
+        name: tests/diffusion_tests
       vars:
         postgres_db: "production"
         postgres_host: "localhost"
@@ -296,7 +296,7 @@ community.postgresql >= 2.4.0
   tasks:
     - name: Verify insecure ports are closed
       ansible.builtin.include_role:
-        name: diffusion_tests
+        name: tests/diffusion_tests
       vars:
         verify_ports:
           - port: 23
