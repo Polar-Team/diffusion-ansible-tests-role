@@ -20,27 +20,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install Diffusion
-        run: |
-          LATEST_RELEASE=$(curl -s https://api.github.com/repos/Polar-Team/diffusion/releases/latest | jq -r .tag_name)
-          ARCH=$(uname -m)
-          if [ "$ARCH" = "x86_64" ]; then
-            DOWNLOAD_URL="https://github.com/Polar-Team/diffusion/releases/download/${LATEST_RELEASE}/diffusion-linux-amd64"
-          elif [ "$ARCH" = "aarch64" ]; then
-            DOWNLOAD_URL="https://github.com/Polar-Team/diffusion/releases/download/${LATEST_RELEASE}/diffusion-linux-arm64"
-          else
-            echo "Unsupported architecture: $ARCH"
-            exit 1
-          fi
-          wget -O /usr/local/bin/diffusion "$DOWNLOAD_URL"
-          chmod +x /usr/local/bin/diffusion
-          diffusion version
-
-      - name: Run Molecule tests
-        run: |
-          diffusion molecule --ci && \
-          diffusion molecule --ci --lint && \
-          diffusion molecule --ci --verify
+      - name: Diffusion Molecule Tests
+        uses: Polar-Team/diffusion/actions/diffusion-test@dev-ci-github-action-template
+        with:
+          diffusion-version: 'latest'
+          run-lint: true
+          run-verify: true
 
   release:
     name: Create Release
