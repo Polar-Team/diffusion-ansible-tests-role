@@ -21,7 +21,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Diffusion Molecule Tests
-        uses: Polar-Team/diffusion/actions/diffusion-test@dev-ci-github-action-template
+        uses: Polar-Team/diffusion/diffusion-test@dev-ci-github-action-template
         with:
           diffusion-version: 'latest'
           run-lint: true
