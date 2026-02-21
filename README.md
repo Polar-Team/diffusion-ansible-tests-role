@@ -380,13 +380,13 @@ verify_ports:
 ### 4. Leverage Verbosity Flags
 ```bash
 # Quiet output (only summaries and failures)
-molecule verify
+diffusion molecule --verify
 
 # Detailed output (includes success messages)
-molecule verify -- -v
+diffusion molecule --verify -- -v
 
 # Debug output (includes all task details)
-molecule verify -- -vv
+diffusion molecule --verify -- -vv
 ```
 
 ### 5. Use Empty Lists to Skip Checks
