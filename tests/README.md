@@ -45,17 +45,17 @@ diffusion molecule --verify -- --tags postgres
 diffusion molecule --verify -- --tags uri
 ```
 
-### With Molecule Directly
+### With Diffusion Framework Directly
 
 ```bash
 # Run all tests
-molecule test -s default
+diffusion molecule --test
 
 # Run verify stage only
-molecule verify -s default
+diffusion molecule --verify
 
 # Run with specific tags
-molecule verify -s default -- --tags ports
+diffusion molecule --verify -- --tags ports
 ```
 
 ## Test Categories
@@ -242,19 +242,14 @@ diffusion molecule --verify -- -vvv
 diffusion molecule --create
 diffusion molecule --converge
 # Then manually SSH or use docker exec
-
-# With Molecule
-molecule login -s default
 ```
 
 ### Keep Instance After Failure
 
 ```bash
-# With Molecule
-molecule test -s default --destroy=never
-
-# Then login to inspect
-molecule login -s default
+# With Diffusion
+diffusion molecule --verify --testsoverwrite # tests fails but leaves container
+# Then login to inspect using docker exec
 ```
 
 ### Run Specific Test
