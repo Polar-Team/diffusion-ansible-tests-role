@@ -2,10 +2,7 @@
 
 A comprehensive Ansible testing role for validating container environments, network services, shell commands, and database configurations using the [Diffusion framework](https://github.com/Polar-Team/diffusion).
 
-> 🚀 **Quick Start**: See [QUICKSTART.md](QUICKSTART.md) to get started in 5 minutes  
-> 📚 **Complete Guide**: See [SUMMARY.md](SUMMARY.md) for a complete overview  
-> 📖 **Documentation**: See [DOCUMENTATION_INDEX.md](DOCUMENTATION_INDEX.md) for all documentation  
-> 🔧 **Framework**: This role is designed to work with the [Diffusion testing framework](https://github.com/Polar-Team/diffusion)
+> **Framework**: This role is designed to work with the [Diffusion testing framework](https://github.com/Polar-Team/diffusion)
 
 ## Description
 
@@ -59,7 +56,7 @@ verify_docker_containers:
     image: "nginx:alpine"                # optional - verify image
     health: "healthy"                    # optional - verify health check status
 
-verify_docker_env: {}                    # optional - environment variables for docker commands
+verify_docker_env_override: {}            # optional - override environment variables for docker commands
 ```
 
 **Supported states:** `running`, `stopped`, `paused`, `restarting`, `created`
@@ -79,18 +76,13 @@ verify_ports:
     description: "Web API"               # optional - for clearer output
     delay: 0                             # optional - seconds before first check
     sleep: 1                             # optional - seconds between retries
-
-# Global configuration (optional)
-port_summary_limit: 10                   # Number of failed ports shown in summary (default: 10)
-port_check_show_success: false           # Show success messages at default verbosity (default: false)
 ```
 
 **Supported states:**
-- `started`: Port must be listening (accepting connections)
-- `stopped`: Port must NOT be listening
-- `drained`: Port must stop accepting new connections (rare, for graceful shutdown)
+- `started` (or `present`): Port must be listening (accepting connections)
+- `stopped` (or `absent`): Port must NOT be listening
 
-**Performance Note:** Ports are checked sequentially. For many ports with long timeouts, consider using async/poll.
+**Performance Note:** Ports are checked sequentially. For `started` ports, the check fails immediately on the first failure. For `stopped` ports, a timeout failure is treated as a pass (port is correctly not listening).
 
 ### Shell Command Tests
 
@@ -402,7 +394,7 @@ postgres_expected_tables:        # Check tables only
 ### Docker Permission Errors
 If you see "permission denied" errors:
 ```yaml
-verify_docker_env:
+verify_docker_env_override:
   DOCKER_HOST: "unix:///var/run/docker.sock"
 ```
 
@@ -497,7 +489,7 @@ Tests are organized in the `tests/` directory following Diffusion framework conv
 
 ```
 tests/
-├── test.yml              # Main test orchestration
+├── README.md             # Test documentation
 ├── ports/
 │   ├── setup.yml        # Port test setup
 │   └── test_ports.yml   # Port test cases (4 tests)
@@ -548,9 +540,8 @@ Contributions are welcome! Please ensure:
 
 ### Quick Links
 
-- [Quick Reference Guide](QUICK_REFERENCE.md) - Fast command reference
-- [Testing Guide](TESTING.md) - Complete testing documentation
-- [Test Summary](TEST_SUMMARY.md) - Detailed test case breakdown
+- [Test Documentation](tests/README.md) - Detailed test case documentation
+- [Changelog](CHANGELOG.md) - Detailed version history
 
 ## Changelog
 

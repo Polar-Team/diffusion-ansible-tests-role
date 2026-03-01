@@ -7,6 +7,12 @@ verify_docker_env_override: []
 verify_output_in_cmd: []
 verify_uris: []
 
+uri_test_ip: "127.0.0.1"
+uri_validate_certs: false
+uri_timeout: 10
+uri_expected_status: [200, 301, 302]
+uri_follow_redirects: "safe"
+
 postgres_host: "127.0.0.1"
 postgres_port: 5432
 postgres_db: ""

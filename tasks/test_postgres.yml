@@ -41,6 +41,7 @@
       check_mode: true
       register: db_check
       failed_when: false
+      no_log: true
 
     - name: Validate database exists
       ansible.builtin.assert:
@@ -59,6 +60,7 @@
         login_password: "{{ postgres_password }}"
         port: "{{ postgres_port | default(5432) }}"
       register: pg_roles
+      no_log: true
       when: >-
         postgres_expected_roles is defined and
         postgres_expected_roles | length > 0
@@ -94,6 +96,7 @@
             login_password: "{{ postgres_password }}"
             port: "{{ postgres_port | default(5432) }}"
           register: pg_tables_query
+          no_log: true
 
         - name: Extract table names from query result
           ansible.builtin.set_fact:
@@ -134,6 +137,7 @@
             login_password: "{{ postgres_password }}"
             port: "{{ postgres_port | default(5432) }}"
           register: query_result
+          no_log: true
           loop: "{{ postgres_expected_records }}"
           loop_control:
             loop_var: record

@@ -36,3 +36,24 @@
 [cache]
   enabled = true
   cache_id = "ea21e3aae7ea951a"
+  docker_cache = true
+  uv_cache = true
+
+[dependencies]
+  ansible = ">=13.0.0"
+  ansible_lint = ">=24.0.0"
+  molecule = ">=24.0.0"
+  yamllint = ">=1.35.0"
+  [dependencies.python]
+    Min = "3.11"
+    Max = "3.13"
+    Pinned = "3.13"
+
+  [[dependencies.collections]]
+    Name = "community.docker"
+
+  [[dependencies.collections]]
+    Name = "community.postgresql"
+
+  [[dependencies.collections]]
+    Name = "community.general"

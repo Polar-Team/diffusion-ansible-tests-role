@@ -26,6 +26,9 @@ jobs:
           diffusion-version: 'latest'
           run-lint: true
           run-verify: true
+          cache-enabled: true
+          cache-uv: true
+          cache-docker: true
 
   release:
     name: Create Release
