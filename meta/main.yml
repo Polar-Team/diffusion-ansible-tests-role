@@ -19,6 +19,6 @@ galaxy_info:
         - diffusion
         - tests
 collections:
-    - community.docker
-    - community.postgresql
     - community.general
+    - community.postgresql
+    - community.docker

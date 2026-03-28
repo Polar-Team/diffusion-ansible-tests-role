@@ -50,10 +50,16 @@
     Pinned = "3.13"
 
   [[dependencies.collections]]
-    Name = "community.docker"
+    Name = "default.general"
+    Namespace = "community"
+    Version = ">=12.5.0"
 
   [[dependencies.collections]]
-    Name = "community.postgresql"
+    Name = "default.postgresql"
+    Namespace = "community"
+    Version = ">=4.2.0"
 
   [[dependencies.collections]]
-    Name = "community.general"
+    Name = "default.docker"
+    Namespace = "community"
+    Version = ">=5.1.0"
