@@ -7,6 +7,32 @@
       - python3-docker
     state: present
 
+- name: Ensure Docker config directory exists
+  ansible.builtin.file:
+    path: /etc/docker
+    state: directory
+    mode: "0755"
+
+- name: Configure daemon.json to disable containerd snapshotter
+  ansible.builtin.copy:
+    dest: /etc/docker/daemon.json
+    content: |
+      {
+        "features": {
+          "containerd-snapshotter": false
+        },
+        "storage-driver": "overlay2"
+      }
+    mode: "0644"
+  register: docker_daemon_config
+
+- name: Restart Docker immediately
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+    daemon_reload: true
+  when: docker_daemon_config.changed
+
 - name: Start Docker service
   ansible.builtin.systemd:
     name: docker
@@ -31,6 +57,10 @@
     - name: test-redis-healthy
       image: redis:alpine
       healthcheck: ["CMD", "redis-cli", "ping"]
+  register: container_result
+  retries: 3
+  delay: 5
+  until: container_result is not failed
 
 - name: Create running container without health check
   community.docker.docker_container:
