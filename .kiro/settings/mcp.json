@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "diffusion": {
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-v", "/var/run/docker.sock:/var/run/docker.sock",
+        "ghcr.io/polar-team/diffusion-mcp-server:latest"
+      ],
+      "autoApprove": ["*"]
+    }
+  }
+}
